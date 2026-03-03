@@ -107,6 +107,32 @@ th {
   background: #f1f1f1;
   border-radius: 8px;
 }
+
+.uml-diagram {
+  margin-top: 12px;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.uml-diagram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-width: 860px;
+}
+
+details.uml-code {
+  margin-top: 12px;
+}
+
+details.uml-code > summary {
+  cursor: pointer;
+  font-weight: bold;
+  color: #2c3e50;
+}
 </style>
 </head>
 <body>
@@ -118,6 +144,35 @@ th {
 
 <p><strong>Equipo:</strong> Elkin Yandun, Brayan Cruz, Julian Ceron, Jeison Guerra</p>
 <p><strong>Proyecto:</strong> Nomo</p>
+
+<div class="section">
+<h2>🧩 Contexto del proyecto (Nomo)</h2>
+<label>¿Qué problema resuelve el sistema?</label>
+<div class="line">Nomo ayuda a pequeñas y medianas empresas que no tienen presencia digital a crear y personalizar un sitio web con plantillas prediseñadas, sin necesitar conocimientos de programación.</div>
+<label>¿Quién lo usará?</label>
+<div class="line">Emprendedores, pequeñas empresas, comercios locales y personas que venden bienes o servicios.</div>
+<label>¿Qué pasaría si no existiera?</label>
+<div class="line">Muchas empresas seguirían sin presencia en línea, tendrían que contratar un desarrollador, perderían oportunidades de comercio electrónico y su crecimiento sería más lento frente a negocios digitalizados.</div>
+<div class="note">
+<strong>Roles del equipo (según README)</strong><br>
+- Líder del proyecto: Brayan Esmid Cruz Chate<br>
+- Encargado de documentación: Jeison Guerra<br>
+- Encargado técnico: Elkin Yesid Yandun<br>
+- Encargado de presentación: Julián Leonardo Cerón
+</div>
+</div>
+
+<div class="section">
+<h2>🧱 Servicios identificados (microservicios)</h2>
+<div class="line">
+<strong>Usuarios</strong>: creación de cuentas, perfiles.<br>
+<strong>Autenticación</strong>: verificación de credenciales, permisos.<br>
+<strong>Páginas Web</strong>: creación/edición del sitio, plantillas, publicación.<br>
+<strong>Productos</strong>: CRUD de artículos y vínculo con el sitio.<br>
+<strong>Imágenes</strong>: carga/gestión en Cloudinary.<br>
+<strong>Inteligencia Artificial</strong>: generación de descripciones y apoyo de contenido (Groq).
+</div>
+</div>
 
 <div class="section">
 <h2>🪜 1. Interacciones entre Servicios</h2>
@@ -151,6 +206,26 @@ th {
 <div class="line">Archivos multimedia (imágenes) para productos y páginas</div>
 <label>¿Qué sucede si no responde?</label>
 <div class="line">No se podrían subir ni visualizar imágenes; el usuario tendría que usar solo texto.</div>
+
+<p><strong>Interacción 4</strong></p>
+<label>Servicio que envía: </label>
+<div class="line">Servicio de Páginas Web / Productos</div>
+<label>Servicio que recibe:</label>
+<div class="line">Servicio de Inteligencia Artificial (Groq)</div>
+<label>Información enviada:</label>
+<div class="line">Texto base o atributos del producto/negocio para generar descripciones o contenido</div>
+<label>¿Qué sucede si no responde?</label>
+<div class="line">No se generarían descripciones automáticas; el usuario tendría que escribirlas manualmente (degradación del sistema, pero puede continuar).</div>
+
+<p><strong>Interacción 5</strong></p>
+<label>Servicio que envía: </label>
+<div class="line">Servicio de Productos</div>
+<label>Servicio que recibe:</label>
+<div class="line">Base de datos (Supabase)</div>
+<label>Información enviada:</label>
+<div class="line">Productos (crear/editar/eliminar), relación con el sitio y metadatos</div>
+<label>¿Qué sucede si no responde?</label>
+<div class="line">No se podrían guardar cambios de productos; el catálogo no se actualizaría y podrían perderse operaciones.</div>
 </div>
 
 <div class="section">
@@ -176,10 +251,16 @@ th {
 <td>Consultas y escrituras a la BD son operaciones request-response (Supabase API REST).</td>
 </tr>
 <tr>
-<td>Páginas Web → IA / Imágenes</td>
+<td>Páginas Web/Productos → IA (Groq)</td>
 <td>☑</td>
 <td>☐</td>
-<td>Se envía una solicitud y se espera la respuesta (descripción o URL de imagen). Podría usarse evento para notificar cuando la imagen esté lista si fuera asíncrono.</td>
+<td>Se envía un prompt/atributos y se espera una respuesta con texto generado (descripciones, apoyo de contenido).</td>
+</tr>
+<tr>
+<td>Páginas Web/Productos → Imágenes (Cloudinary)</td>
+<td>☑</td>
+<td>☐</td>
+<td>Se sube un archivo y se recibe una URL; es request-response aunque la carga pueda ejecutarse sin bloquear la UI.</td>
 </tr>
 </table>
 </div>
@@ -207,31 +288,38 @@ th {
 <td>Guardar y leer datos es necesario de forma inmediata para mostrar o actualizar la página.</td>
 </tr>
 <tr>
-<td>IA / Imágenes</td>
+<td>Subida de Imágenes (Cloudinary)</td>
+<td>☐</td>
+<td>☑</td>
+<td>La carga puede tardar; conviene no bloquear la interfaz y manejar progreso/reintentos.</td>
+</tr>
+<tr>
+<td>Generación de contenido (IA / Groq)</td>
 <td>☑</td>
 <td>☐</td>
-<td>En la implementación actual se espera la respuesta. La subida de imágenes podría ser asíncrona (colas) para no bloquear la interfaz.</td>
+<td>Normalmente el usuario espera el texto para completar el formulario; si falla, se puede degradar a edición manual.</td>
 </tr>
 </table>
 </div>
 
 <div class="section">
 <h2>🪜 4. Eventos Importantes del Sistema</h2>
-1️⃣ <strong>Usuario inicia sesión</strong> — Se verifica identidad y se crea la sesión.<br><br>
-2️⃣ <strong>Usuario crea o edita una página web</strong> — Se guarda la configuración en la base de datos y, si aplica, se envían imágenes a Cloudinary y consultas al servicio de IA.<br><br>
-3️⃣ <strong>Usuario publica la página</strong> — La página se despliega en Vercel y queda disponible para visitantes.
+1️⃣ <strong>Usuario se registra / inicia sesión</strong> — Se crean credenciales, se verifican y se habilita sesión/permisos.<br><br>
+2️⃣ <strong>Usuario crea o edita una página web</strong> — Se guarda configuración y detalles del negocio en Supabase; si hay imágenes, se suben a Cloudinary; si requiere contenido, consulta a Groq.<br><br>
+3️⃣ <strong>Usuario gestiona productos</strong> — Se agregan/modifican/eliminan artículos y se sincronizan con la BD.<br><br>
+4️⃣ <strong>Usuario publica la página</strong> — La página se despliega en Vercel y queda disponible para visitantes.
 </div>
 
 <div class="section">
 <h2>🪜 5. Análisis de Fallos</h2>
 <label>Servicio más crítico:</label>
-<div class="line">Base de datos (Supabase) y servidor principal (Vercel). Sin ellos no hay aplicación ni persistencia.</div>
+<div class="line">Servicio de Páginas Web. Es el servicio que entrega el valor principal: permitir crear/editar/publicar el sitio del negocio y coordinar plantillas, productos, imágenes e IA.</div>
 <label>¿Qué pasaría si falla?</label>
-<div class="line">Supabase: no se podría almacenar ni consultar información. Vercel: la aplicación dejaría de estar disponible.</div>
+<div class="line">Los usuarios no podrían construir ni actualizar su página (ni aplicar plantillas, ni publicar cambios). La plataforma perdería su funcionalidad principal aunque otros servicios estén disponibles. Dependiendo del tipo de fallo, podría quedar solo lectura (ver páginas ya publicadas) pero sin edición/gestión desde Nomo.</div>
 <label>¿El sistema debe detenerse o continuar?</label>
-<div class="line">Debe intentar continuar con degradación: mostrar mensajes de error controlados, permitir uso sin IA (descripción manual) o sin imágenes (placeholders), y reintentos automáticos donde sea posible.</div>
+<div class="line">Debe continuar con degradación controlada: habilitar navegación/visualización cuando sea posible y deshabilitar únicamente acciones de edición/publicación, mostrando un estado claro. Además, si fallan dependencias (Groq/Cloudinary/BD), el servicio core debe seguir operando con funciones reducidas (descripción manual, placeholders, borradores).</div>
 <label>¿Cómo podrían manejar este fallo?</label>
-<div class="line">Reintento automático; mensajes de error comprensibles; copias de seguridad periódicas de la base de datos; monitoreo constante del sistema.</div>
+<div class="line">Balanceo y réplicas del servicio de Páginas Web; health checks y auto-restart; circuit breaker/timeouts hacia dependencias; colas para tareas pesadas (subida de imágenes/IA); caché de plantillas/configuraciones y modo borrador local; monitoreo y alertas. (La BD se protege con backups, pero como dependencia, no como el “core” del sistema).</div>
 </div>
 
 <div class="section">
@@ -243,13 +331,18 @@ th {
 <label>¿Por qué sería útil Service Discovery?</label>
 <div class="line">Permite que los servicios se encuentren automáticamente cuando cambian IPs, puertos o se añaden réplicas; facilita la escalabilidad independiente y el despliegue en entornos como contenedores o Kubernetes.</div>
 <label>¿Dónde lo aplicarían en su sistema?</label>
-<div class="line">Entre el backend en Vercel y los servicios externos (Supabase, Groq, Cloudinary) cuando se escalen o se migre a múltiples instancias; o entre microservicios internos si la arquitectura crece (por ejemplo, desacoplar IA, imágenes o autenticación en servicios propios).</div>
+<div class="line">Principalmente entre microservicios internos si la arquitectura crece (por ejemplo, separar IA, imágenes o autenticación como servicios propios con múltiples instancias). Con servicios externos (Supabase, Groq, Cloudinary) normalmente se usan URLs estables + variables de entorno, pero un registro/descubrimiento ayuda si se migran a instancias propias o se agrega balanceo dinámico.</div>
 </div>
 
 <div class="section">
-<h2>🪜 7. Mini Diagrama</h2>
-<p>Dibujen:</p>
-<p><strong>Servicio de Pagina Web → Service Discovery → Base de Datos</strong></p>
+<h2>🪜 7. Diagrama de Clases (UML) — Nomo</h2>
+<p>Diagrama de clases del sistema Nomo.</p>
+
+<div class="uml-diagram" aria-label="Diagrama UML de clases de Nomo">
+  <img src="https://www.plantuml.com/plantuml/svg/TLD1Rjim4Bph5JpQGD9BRph5betMXIiPIlo0ZRHM5gMu0aaLBU8ygc_enx8oHS88d9DsXjJEp99yS1wi7tkTUV8QrTSlQaFGMUX1jQWA3GwTMlJSekQ9QRadGxpCiaRMd3gw4IonUisKedP6KXlkdorAWJsGbc_3nblfzlyVV0Vt8enbhHQhpSzTUQUA_MvRFcsNGf-mUO4QEtBUSlOMXKhik4b2CxeMQj4rbWPXpIG7NhPO0ga7omEXdvpbqN0KAYp2vPSaT82E3Cmw0KWvMdqOdpKr4q3deMMrM5TrlTfKzPqw7DVxNR7Qh9OXwecwqLuQ_tYioic31kD9QyZL8PQJ-v0ZZ_6IZRGhEaduyynYouwD5-4rEBngPRaLFiukmiyR3HR3SA7nz9jl-PH6FNHe3fPCGmFeNEqkH9ATyImQG1XaeNbioO3zAzZJ89FSLzygcM9TROx5arJhLLbkw-KDPRNWYqtGq-emPybJoElrPEKH7N6mulbNyE76cnTY-sSWcwv4lDxdy_qzlwRquHleytc-Cf6DcwEZ3toSKpBynjTqw9KwnrF_w2GaoZB37YNJeFYKtc8Ut-qG3mTTze2cdTxvEm00"
+       alt="Diagrama de clases UML de Nomo"
+       style="max-width:100%; height:auto; border:1px solid #dee2e6;">
+</div>
 </div>
 
 <div class="note">
