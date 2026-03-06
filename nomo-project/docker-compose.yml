@@ -9,42 +9,6 @@ services:
     volumes:
       - supabase_db:/var/lib/postgresql/data
 
-  supabase-auth:
-    image: supabase/gotrue:v2.153.0
-    ports:
-      - "9999:8000"
-    depends_on:
-      - supabase-db
-    environment:
-      API_EXTERNAL_URL: http://localhost:9999
-      GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://postgres:postgres@supabase-db:5432/postgres
-      GOTRUE_SITE_URL: http://localhost:3000
-      GOTRUE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
-      GOTRUE_JWT_EXP: 3600
-      GOTRUE_DISABLE_SIGNUP: false
-      GOTRUE_EXTERNAL_EMAIL_ENABLED: true
-
-  # Opcional: más servicios Supabase (Storage, Realtime, etc.) para full stack
-  supabase-storage:
-    image: supabase/storage-api:v1.0.6
-    ports:
-      - "5000:5000"
-    depends_on:
-      - supabase-db
-    environment:
-      ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
-      SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.DaYlPu3nvnvbZWXPGaJsgkjmQfwIPG0HLRyYUTkgR40
-      POSTGRES_CONNECTION: postgres://postgres:postgres@supabase-db:5432/postgres
-      DATABASE_URL: postgres://postgres:postgres@supabase-db:5432/postgres
-      RLS_ENABLED: false
-      FILE_SIZE_LIMIT: 52428800
-      STORAGE_BACKEND: file
-      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
-      TENANT_ID: stub
-      REGION: stub
-      GLOBAL_S3_BUCKET: stub
-
   backend:
     build: ./demo
     ports:
