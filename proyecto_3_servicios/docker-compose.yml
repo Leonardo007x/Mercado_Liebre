@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  frontend:
+    image: nginx:alpine
+    container_name: reservas_frontend
+    ports:
+      - "8080:80"
+    volumes:
+      - ./frontend/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/html:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+
+  database:
+    image: supabase/postgres:15.1.0.147
+    container_name: reservas_db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: reservas
+    ports:
+      - "5433:5432"
+    volumes:
+      - reservas_db_data:/var/lib/postgresql/data
+  
+  backend:
+    build: ./backend
+    container_name: reservas_backend
+    ports:
+      - "3001:3001"
+    environment:
+      - SUPABASE_URL=http://database:8000
+      - SUPABASE_ANON_KEY=dev_anon_key
+    depends_on:
+      - database
+
+volumes:
+  reservas_db_data:
