@@ -1,74 +1,106 @@
-# Nomo
-Proyecto - NOMO
+# Mercado Liebre
 
-NOMO es una plataforma creada para que pequeños y medianos negocios puedan construir su propia página web usando plantillas editables. La idea principal es ofrecer una solución práctica a personas que quieren tener presencia digital pero no saben programar ni pueden pagar un desarrollo a medida.
+Mercado Liebre es una plataforma para que pequeños negocios publiquen y administren su catálogo digital de forma rápida, con gestión de tienda, productos y configuración visual. La idea principal es ofrecer una solución práctica a personas que quieren tener presencia digital sin depender de herramientas genéricas ni asumir costos de desarrollo a medida.
 
-Equipo de trabajo -
-Brayan Esmid Cruz cumple el rol de líder del proyecto.
-Julián Leonardo Cerón se encarga de la parte de presentación.
-Elkin Yesid Yandun asume la responsabilidad técnica.
-Jeison Javier Guerra desarrolla la documentación.
+**Equipo de trabajo** — Brayan Esmid Cruz cumple el rol de líder del proyecto. Julián Leonardo Cerón se encarga de la parte de presentación. Elkin Yesid Yandun asume la responsabilidad técnica. Jeison Javier Guerra desarrolla la documentación.
 
-La aplicación está desplegada en Vercel y utiliza Supabase como sistema de base de datos. Para la generación de contenido automático se integra Groq y el manejo de imágenes se realiza mediante Cloudinary.
+La aplicación está desplegada con Docker Compose y utiliza MySQL como base de datos. Para el manejo de imágenes se integra Cloudinary y para la generación de contenido automático se usa Groq.
 
-PARTE 1 - ENTENDER EL PROBLEMA
+---
 
-El sistema busca resolver la dificultad que tienen muchos emprendedores para crear una página web profesional. Con NOMO pueden organizar su información, mostrar productos y personalizar su sitio sin conocimientos técnicos.
+## PARTE 1 — ENTENDER EL PROBLEMA
 
-Los principales usuarios son emprendedores, pequeñas empresas y personas que venden productos por redes sociales y necesitan una página web sencilla.
+El sistema busca resolver la dificultad que tienen muchos emprendedores para crear y mantener una presencia digital. Con Mercado Liebre pueden publicar su tienda, organizar productos y personalizar su catálogo sin conocimientos técnicos.
 
-Si la plataforma no existiera, estos negocios tendrían que limitarse a redes sociales o asumir mayores costos para contratar a un desarrollador, lo que frenaría su crecimiento digital.
+Los principales usuarios son emprendedores, pequeñas empresas y personas que venden productos por redes sociales y necesitan una página propia para mostrar su oferta de forma organizada.
 
-PARTE 2 - IDENTIFICAR LOS SERVICIOS
+Si la plataforma no existiera, estos negocios tendrían que limitarse a redes sociales o asumir mayores costos para contratar a un desarrollador, lo que frenarían su crecimiento digital.
 
-El sistema se compone de varios módulos que cumplen funciones específicas. Existe un componente encargado del registro y autenticación de usuarios, otro que administra los negocios y sus páginas, uno dedicado a los productos, un servicio que genera descripciones automáticamente con inteligencia artificial, otro que gestiona las imágenes y finalmente el servicio que almacena toda la información.
+---
 
-Algunas tareas funcionan de forma independiente, como la carga de imágenes o la generación de texto con IA. También el guardado y consulta de datos opera de manera separada del renderizado de las plantillas.
+## PARTE 2 — IDENTIFICAR LOS SERVICIOS
 
-PARTE 3 - COMUNICACIÓN ENTRE COMPONENTES
+El sistema se compone de varios módulos que cumplen funciones específicas. Existe un componente encargado del registro y autenticación de usuarios mediante JWT. Otro administra las tiendas, sus temas visuales y configuración. Uno más está dedicado a los productos y categorías. Un servicio gestiona la subida y almacenamiento de imágenes a través de Cloudinary. Finalmente, existe una integración con Groq para generar descripciones automáticas de productos mediante inteligencia artificial.
 
-La interacción comienza cuando el usuario realiza una acción en la interfaz. El frontend envía la solicitud al backend. El backend procesa la petición y, si es necesario, consulta la base de datos o se comunica con servicios externos. Una vez obtiene la respuesta, la devuelve al frontend para que el usuario vea el resultado.
+Algunas tareas funcionan de forma independiente: la carga de imágenes, la generación de texto con IA y el guardado de datos operan sin afectarse entre sí. Si Groq no está disponible, el usuario puede escribir la descripción manualmente sin interrumpir el flujo.
 
-Por ejemplo, cuando se crea un producto, el backend registra la información en la base de datos. Si el usuario solicita una descripción automática, el backend envía la petición al servicio de IA y luego entrega el texto generado.
+---
 
-PARTE 4 - ARQUITECTURA
+## PARTE 3 — COMUNICACIÓN ENTRE COMPONENTES
 
-Se adopta una arquitectura basada en microservicios. Esto se debe a que el sistema está compuesto por varios servicios que pueden operar de manera relativamente independiente, como la base de datos, el almacenamiento de imágenes y la inteligencia artificial.
+La interacción comienza cuando el usuario realiza una acción en la interfaz. El frontend React/Vite envía la solicitud al backend a través de Nginx, que actúa como proxy inverso redirigiendo las rutas `/api/*` hacia el servicio de API en el puerto 3000. El backend procesa la petición y, si es necesario, consulta MySQL o se comunica con servicios externos como Cloudinary o Groq. Una vez obtiene la respuesta, la devuelve al frontend para que el usuario vea el resultado.
 
-La plataforma está pensada para crecer en número de usuarios, por lo que necesita una estructura que permita escalar y mantener cada parte sin afectar a las demás. Aunque actualmente es un proyecto en desarrollo, se diseñó considerando una posible expansión futura.
+Por ejemplo, cuando se crea un producto, el backend registra la información en la base de datos. Si el usuario solicita una descripción automática, el backend envía la petición a Groq y entrega el texto generado. Si sube una imagen, la API la envía a Cloudinary y almacena la URL resultante.
 
-PARTE 5 - BASE DE DATOS
+---
 
-El sistema almacena información relacionada con usuarios, negocios, productos y configuraciones de cada página. También guarda datos necesarios para la autenticación y personalización.
+## PARTE 4 — ARQUITECTURA
 
-Los datos más sensibles son las credenciales de acceso y la información comercial de los negocios. Si estos datos se pierden, las páginas dejarían de funcionar correctamente y se afectaría la confianza de los usuarios.
+Se adopta una arquitectura de servicios desplegada con Docker Compose. Esto se debe a que el sistema está compuesto por componentes que pueden operar de manera relativamente independiente: el frontend servido por Nginx, la API Node.js/Express, la base de datos MySQL y los servicios externos de Cloudinary y Groq.
 
-Actualmente se utiliza una base de datos centralizada en Supabase que es compartida por los distintos módulos del sistema.
+La plataforma está pensada para crecer en número de negocios y usuarios, por lo que se diseñó con una estructura que permite escalar y mantener cada parte sin afectar a las demás.
 
-PARTE 6 - TIPOS DE USUARIO
+---
 
-Dentro del sistema existen tres perfiles principales. El administrador supervisa y controla la plataforma. El cliente, que es el dueño del negocio, crea y modifica su página. El visitante únicamente visualiza la información pública. Cada perfil tiene permisos distintos según su función.
+## PARTE 5 — BASE DE DATOS
 
-PARTE 7 - FALLAS Y RIESGOS
+El sistema almacena información relacionada con usuarios, tiendas, temas visuales, productos y categorías. También guarda los datos necesarios para la autenticación y personalización de cada tienda.
 
-Si el servicio de inteligencia artificial deja de funcionar, simplemente no se podrán generar descripciones automáticas, aunque el usuario podrá escribirlas manualmente.
+Los datos más críticos son las credenciales de acceso y la información comercial de los negocios. Si estos datos se pierden, las tiendas dejarían de funcionar correctamente y se afectaría la confianza de los usuarios. Para mitigar este riesgo se usa un volumen persistente en Docker y se realizan respaldos periódicos.
 
-Si la base de datos falla, no sería posible guardar ni consultar información, lo que impactaría directamente el funcionamiento general.
+---
 
-Si el servidor principal presenta una caída, la aplicación no estaría disponible temporalmente.
+## PARTE 6 — TIPOS DE USUARIO
 
-Para reducir riesgos se consideran medidas como reintentos automáticos, mensajes de error controlados, copias de seguridad y monitoreo constante del sistema.
+Dentro del sistema existen tres perfiles principales. El administrador supervisa y controla la operación global de la plataforma. El dueño del negocio crea y modifica su tienda, sube productos y personaliza su catálogo. El visitante únicamente visualiza la información pública de cada tienda. Cada perfil tiene permisos distintos según su función.
 
-PARTE 8 - DOCUMENTACIÓN
+---
 
-El README del repositorio incluye la explicación del problema, los servicios definidos, la arquitectura adoptada, la forma en que se comunican los componentes, los tipos de usuario y los riesgos identificados.
+## PARTE 7 — FALLAS Y RIESGOS
 
-PARTE 9 - CONTROL DE VERSIONES
+Si el servicio de inteligencia artificial (Groq) deja de funcionar, simplemente no se podrán generar descripciones automáticas, aunque el usuario podrá escribirlas manualmente sin interrumpir el resto del flujo.
 
-Los cambios se organizan por secciones relacionadas con la documentación de servicios, arquitectura, comunicación y usuarios.
+Si Cloudinary falla, la subida y visualización de imágenes externas se verá afectada. Se mitiga con validación de configuración, respuestas controladas y uso de imágenes por defecto.
 
-El Pull Request titulado Arquitectura inicial del sistema resume las decisiones tomadas en esta primera etapa y deja registro de la estructura definida.
+Si la base de datos MySQL presenta una caída, no será posible guardar ni consultar información, lo que impactaría directamente el funcionamiento general. Se mitiga con volumen persistente, respaldos y manejo de errores en la API.
 
-PARTE 10 - REVISIÓN
+Si el servidor principal del backend cae, la aplicación no estará disponible temporalmente. Se mitiga con reinicio automático en Docker Compose, un endpoint de health (`GET /api/health`) y monitoreo constante.
 
-Cada integrante revisa la propuesta completa, aporta observaciones, identifica posibles debilidades y valida que la arquitectura tenga coherencia y capacidad de crecimiento.
+---
+
+## PARTE 8 — EJECUCIÓN LOCAL
+
+### Requisitos
+- Docker
+- Docker Compose
+
+### Pasos
+
+Configurar las variables de entorno en `.env` y levantar los servicios:
+
+```bash
+docker compose up --build
+```
+
+Una vez iniciado, acceder desde el navegador:
+
+- **Frontend:** http://localhost:8080
+- **API health:** http://localhost:8080/api/health
+
+---
+
+## PARTE 9 — PRUEBAS DE API
+
+La colección de endpoints para Postman se encuentra en:
+
+```
+postman/Mercado_Liebre_API.postman_collection.json
+```
+
+Flujo recomendado para demo: verificar `GET /api/health`, hacer registro o login para obtener el token JWT, luego recorrer el flujo de tienda y el CRUD completo de productos.
+
+---
+
+## PARTE 10 — CONTROL DE VERSIONES
+
+Los cambios se organizan por secciones relacionadas con la documentación de servicios, arquitectura, comunicación y usuarios. Cada integrante revisa la propuesta completa, aporta observaciones, identifica posibles debilidades y valida que la arquitectura tenga coherencia y capacidad de crecimiento.
