@@ -1,5 +1,21 @@
 # Laboratorio: Sistema que aprende a fallar
 
+## Galería de evidencias (capturas)
+
+Las imágenes están en la carpeta `evidencias/`. En GitHub/GitLab se muestran automáticamente con las rutas relativas siguientes.
+
+| Fase 1 | Fase 2 |
+| :----: | :----: |
+| ![Fase 1](evidencias/Fase_1.png) | ![Fase 2](evidencias/Fase_2.png) |
+
+| Fase 3 | Fase 4 |
+| :----: | :----: |
+| ![Fase 3](evidencias/Fase_3.png) | ![Fase 4](evidencias/Fase_4.png) |
+
+**Fase 5**
+
+![Fase 5](evidencias/Fase_5.png)
+
 ---
 
 ## Contexto del sistema
@@ -47,10 +63,10 @@ docker compose logs -f gateway
 
 ### Evidencia
 
-- Captura obligatoria: `evidencias/fase1.png`
+- Captura obligatoria: `evidencias/Fase_1.png`
 - Incluir: peticiones fallidas + logs con `Fallo numero ...` y `Circuito ABIERTO ...`.
 
-![Evidencia Fase 1](evidencias/fase1.png)
+![Evidencia Fase 1 — peticiones y logs](evidencias/Fase_1.png)
 
 ---
 
@@ -85,12 +101,10 @@ Se extendió el Circuit Breaker a todos los endpoints del gateway sin duplicar l
 
 ### Evidencia
 
-- Captura obligatoria: `evidencias/fase2.png`
+- Captura obligatoria: `evidencias/Fase_2.png`
 - Incluir: pruebas en ambos endpoints + logs por servicio (`mascotas`, `usuarios`).
 
-![Evidencia Fase 2](evidencias/fase2.png)
-
-*(Opcional, segunda captura de apoyo: `evidencias/fase2-extra.png`.)*
+![Evidencia Fase 2 — ambos endpoints y logs](evidencias/Fase_2.png)
 
 ---
 
@@ -118,10 +132,10 @@ Con `half-open`, se logra un equilibrio: se protege al backend durante la caída
 
 ### Evidencia
 
-- Captura obligatoria: `evidencias/fase3.png`
+- Captura obligatoria: `evidencias/Fase_3.png`
 - Incluir: explicación conceptual (puede ser del README o apoyo visual de la lógica).
 
-![Evidencia Fase 3](evidencias/fase3.png)
+![Evidencia Fase 3 — half-open / lógica](evidencias/Fase_3.png)
 
 ---
 
@@ -152,10 +166,10 @@ Además:
 
 ### Evidencia
 
-- Captura obligatoria: `evidencias/fase4.png`
+- Captura obligatoria: `evidencias/Fase_4.png`
 - Incluir: secuencia OPEN -> HALF-OPEN -> (ABIERTO o CERRADO).
 
-![Evidencia Fase 4](evidencias/fase4.png)
+![Evidencia Fase 4 — transición de estados en logs](evidencias/Fase_4.png)
 
 ---
 
@@ -187,10 +201,10 @@ docker compose logs -f gateway
 
 ### Evidencia
 
-- Captura obligatoria: `evidencias/fase5.png`
+- Captura obligatoria: `evidencias/Fase_5.png`
 - Incluir: requests + logs mostrando los 4 escenarios.
 
-![Evidencia Fase 5](evidencias/fase5.png)
+![Evidencia Fase 5 — escenarios de validación](evidencias/Fase_5.png)
 
 ---
 
@@ -227,6 +241,8 @@ El gateway dejó de depender de fallos continuos para colapsar y ahora aplica pr
 ---
 
 ## Notas para ejecutar
+
+Variables de entorno: copia `.env.example` a `.env` en esta carpeta (el `.env` real no se versiona).
 
 ```powershell
 docker compose up -d --build
