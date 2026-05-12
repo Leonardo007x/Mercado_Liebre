@@ -1,5 +1,20 @@
 # Laboratorio: Sistema que aprende a fallar
 
+## Checklist frente a la rúbrica (entrega)
+
+| Requisito | Estado en este repo |
+|-----------|---------------------|
+| `/corte_3/laboratorio_circuit_breaker/` + README + `evidencias/` | Incluido |
+| Evidencias `fase1.png` … `fase5.png` (guía) | En el repo figuran como **`Fase_1.png` … `Fase_5.png`** (mismo contenido; enlaces en README apuntan a esos nombres) |
+| Fase 1: apagar mascotas, peticiones, logs, preguntas | README + `pruebas.bat fase1` |
+| Fase 2: breaker en **todos** los endpoints del gateway sin copiar código; análisis contador/circuito/aislamiento | `llamar_servicio` + `/mascotas`, `/usuarios`, **`/resumen`** |
+| Fase 3: half-open (qué, cuándo reintenta, si falla) | README |
+| Fase 4: espera + intento + cerrar o reabrir | `TIEMPO_RECUPERACION_SEGUNDOS` + logs |
+| Fase 5: 4 escenarios | `pruebas.bat fase5` (con esperas a backend/gateway para HTTP 200 cuando corresponde) |
+| Código + análisis final | `gateway/app.py` + sección final del README |
+
+**Nota Fase 1:** La consigna dice “observar sin modificar”; en la práctica el laboratorio documenta el comportamiento del **gateway ya instrumentado** con Circuit Breaker (comportamiento observable: insiste hasta umbral, luego protege).
+
 ## Galería de evidencias (capturas)
 
 Las imágenes están en la carpeta `evidencias/`. En GitHub/GitLab se muestran automáticamente con las rutas relativas siguientes.
@@ -20,10 +35,11 @@ Las imágenes están en la carpeta `evidencias/`. En GitHub/GitLab se muestran a
 
 ## Contexto del sistema
 
-Este laboratorio se desarrolló sobre un gateway en Flask con dos endpoints principales:
+Este laboratorio se desarrolló sobre un gateway en Flask con endpoints:
 
-- `/mascotas` -> consume `http://backend:5000/mascotas`
-- `/usuarios` -> consume `http://usuarios:5000/usuarios`
+- `/mascotas` → `http://backend:5000/mascotas`
+- `/usuarios` → `http://usuarios:5000/usuarios`
+- `/resumen` → agrega ambas respuestas llamando **dos veces** a `llamar_servicio` (misma lógica de breaker por servicio, sin duplicar el núcleo del patrón).
 
 Se implementó y validó el patrón Circuit Breaker con apertura por fallos consecutivos y recuperación con estado half-open.
 
@@ -74,13 +90,14 @@ docker compose logs -f gateway
 
 ### ¿Qué se implementó?
 
-Se extendió el Circuit Breaker a todos los endpoints del gateway sin duplicar lógica, usando:
+Se extendió el Circuit Breaker a **todos** los endpoints del gateway sin duplicar lógica, usando:
 
 - Una función compartida: `llamar_servicio(nombre_servicio)`
 - Estado independiente por servicio en un diccionario:
   - contador de fallos
   - estado del circuito
   - URL del servicio
+- Ruta agregadora **`/resumen`**: compone `mascotas` + `usuarios` reutilizando `llamar_servicio` dos veces (si `mascotas` está en fallo/circuito abierto, devuelve el mismo error que `/mascotas`; no hay lógica de breaker copiada en la ruta).
 
 ### Decisiones de diseño
 
@@ -185,9 +202,10 @@ Se validaron los cuatro escenarios solicitados:
 ### Comandos de prueba sugeridos
 
 ```powershell
-# Funcionando
+# Funcionando (esperar unos segundos tras `docker compose up` si MySQL aún arranca)
 curl.exe -i http://localhost:5000/mascotas
 curl.exe -i http://localhost:5000/usuarios
+curl.exe -i http://localhost:5000/resumen
 
 # Caida de mascotas
 docker compose stop backend
@@ -195,6 +213,7 @@ for ($i=1; $i -le 4; $i++) { curl.exe -i http://localhost:5000/mascotas }
 
 # Recuperacion
 docker compose start backend
+# Tras MySQL listo, el gateway puede pasar por HALF-OPEN y cerrar circuito
 curl.exe -i http://localhost:5000/mascotas
 docker compose logs -f gateway
 ```
@@ -210,11 +229,11 @@ docker compose logs -f gateway
 
 ## Código implementado
 
-- Circuit Breaker aplicado a múltiples endpoints del gateway.
-- Estado independiente por servicio.
+- Circuit Breaker en **todos** los endpoints del gateway: `/mascotas`, `/usuarios`, `/resumen`.
+- Estado independiente por servicio (`mascotas` vs `usuarios`); `/resumen` respeta el estado de cada uno al llamar en secuencia.
 - Lógica de recuperación (half-open) implementada y validada.
 
-Archivo principal modificado:
+Archivo principal:
 
 - `gateway/app.py`
 
@@ -243,6 +262,13 @@ El gateway dejó de depender de fallos continuos para colapsar y ahora aplica pr
 ## Notas para ejecutar
 
 Variables de entorno: copia `.env.example` a `.env` en esta carpeta (el `.env` real no se versiona).
+
+Ejecuta `pruebas.bat` **desde la carpeta** `laboratorio_circuit_breaker` (es donde vive `docker-compose.yml`). El script incluye esperas activas a:
+
+- `http://localhost:5002/mascotas` (backend ya con MySQL listo),
+- `http://localhost:5000/mascotas` (gateway en 200 tras recuperación),
+
+para evitar 503 falsos por arranque lento del contenedor.
 
 ```powershell
 docker compose up -d --build

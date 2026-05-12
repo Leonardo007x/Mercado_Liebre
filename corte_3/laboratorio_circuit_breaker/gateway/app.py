@@ -12,7 +12,7 @@ app = Flask(__name__)
 # para que sea facil ubicar en el codigo lo que pide la rubrica.
 #
 #   FASE 1: OBSERVAR     -> comportamiento sin proteccion (referencia historica).
-#   FASE 2: APLICAR      -> Circuit Breaker compartido en todos los endpoints.
+#   FASE 2: APLICAR      -> Circuit Breaker compartido en /mascotas, /usuarios y /resumen.
 #   FASE 3: INVESTIGAR   -> half-open (concepto, ver README).
 #   FASE 4: IMPLEMENTAR  -> recuperacion automatica con half-open.
 #   FASE 5: VALIDAR      -> escenarios probados (ver README + evidencias).
@@ -166,6 +166,24 @@ def usuarios():
 @app.route("/mascotas")
 def mascotas():
     return llamar_servicio("mascotas")
+
+
+@app.route("/resumen")
+def resumen():
+    """
+    FASE 2: endpoint agregador sin duplicar logica del breaker.
+    Reutiliza llamar_servicio por cada upstream; cada uno usa su propio
+    estado de circuito (mascotas vs usuarios).
+    """
+    mascotas_r = llamar_servicio("mascotas")
+    if isinstance(mascotas_r, tuple):
+        return mascotas_r
+    usuarios_r = llamar_servicio("usuarios")
+    if isinstance(usuarios_r, tuple):
+        return usuarios_r
+    body_m = mascotas_r.get_json(silent=True)
+    body_u = usuarios_r.get_json(silent=True)
+    return jsonify({"resumen": {"mascotas": body_m, "usuarios": body_u}})
 
 
 if __name__ == "__main__":

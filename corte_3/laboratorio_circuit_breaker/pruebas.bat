@@ -22,6 +22,8 @@ REM =====================================================================
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "GATEWAY=http://localhost:5000"
+REM Puerto publico del backend (mascotas) en docker-compose: 5002:5000
+set "BACKEND_DIRECT=http://localhost:5002"
 
 if "%~1"=="" goto MENU
 
@@ -177,15 +179,18 @@ pause
 echo.
 echo [1/5] Asegurando que ambos servicios esten arriba...
 docker compose start backend usuarios
-timeout /t 3 /nobreak >nul
+call :_ESPERAR_BACKEND_OK
 
 echo.
-echo [2/5] Probando ambos endpoints SANOS:
+echo [2/5] Probando ambos endpoints SANOS (+ /resumen agregador):
 echo --- /mascotas ---
 curl.exe -i -s -o - -w "\nHTTP_STATUS=%%{http_code}\n" %GATEWAY%/mascotas
 echo.
 echo --- /usuarios ---
 curl.exe -i -s -o - -w "\nHTTP_STATUS=%%{http_code}\n" %GATEWAY%/usuarios
+echo.
+echo --- /resumen ^(usa llamar_servicio dos veces, sin duplicar logica del breaker^) ---
+curl.exe -i -s -o - -w "\nHTTP_STATUS=%%{http_code}\n" %GATEWAY%/resumen
 echo.
 pause
 
@@ -319,7 +324,9 @@ timeout /t 11 /nobreak
 echo.
 echo [6/6] CASO B - Levantamos backend y probamos. Deberia CERRAR.
 docker compose start backend
-timeout /t 5 /nobreak >nul
+call :_ESPERAR_BACKEND_OK
+call :_ESPERAR_GATEWAY_MASCOTAS_200
+echo --- /mascotas ^(tras recuperacion; esperado HTTP 200^) ---
 curl.exe -i -s -o - -w "\nHTTP_STATUS=%%{http_code}\n" %GATEWAY%/mascotas
 echo.
 
@@ -372,11 +379,12 @@ pause
 echo.
 echo [Escenario 1/4] SERVICIO FUNCIONANDO
 docker compose start backend usuarios
-timeout /t 3 /nobreak >nul
-echo --- /mascotas ---
+call :_ESPERAR_BACKEND_OK
+call :_ESPERAR_GATEWAY_MASCOTAS_200
+echo --- /mascotas ^(esperado HTTP 200^) ---
 curl.exe -i -s -o - -w "\nHTTP_STATUS=%%{http_code}\n" %GATEWAY%/mascotas
 echo.
-echo --- /usuarios ---
+echo --- /usuarios ^(esperado HTTP 200^) ---
 curl.exe -i -s -o - -w "\nHTTP_STATUS=%%{http_code}\n" %GATEWAY%/usuarios
 echo.
 pause
@@ -404,10 +412,11 @@ pause
 
 echo.
 echo [Escenario 4/4] RECUPERACION DEL SERVICIO
-echo Levantando backend y esperando ventana de recuperacion ^(11s^)...
+echo Levantando backend, esperando MySQL/listen y ventana half-open ^(hasta 200^)...
 docker compose start backend
-timeout /t 11 /nobreak
-echo Llamada de prueba ^(debe pasar a HALF-OPEN y luego CERRAR^):
+call :_ESPERAR_BACKEND_OK
+call :_ESPERAR_GATEWAY_MASCOTAS_200
+echo --- /mascotas ^(esperado HTTP 200 tras recuperacion^) ---
 curl.exe -i -s -o - -w "\nHTTP_STATUS=%%{http_code}\n" %GATEWAY%/mascotas
 echo.
 
@@ -458,6 +467,45 @@ timeout /t 3 /nobreak >nul
 docker compose ps
 echo.
 exit /b 0
+
+
+REM Espera a que el contenedor backend responda GET /mascotas en el puerto publico.
+REM Evita falsos 503 en pruebas cuando MySQL aun no esta listo.
+:_ESPERAR_BACKEND_OK
+echo [wait] Backend GET %BACKEND_DIRECT%/mascotas hasta HTTP 200 ^(max ~60s^)...
+set /a _eb=0
+:_EB_LOOP
+set /a _eb+=1
+if !_eb! gtr 30 (
+  echo [wait] ADVERTENCIA: backend no respondio 200 tras 30 intentos. Sigue el script igualmente.
+  exit /b 0
+)
+for /f %%A in ('curl.exe -s -o NUL -w "%%{http_code}" "%BACKEND_DIRECT%/mascotas" 2^>nul') do set "_ebc=%%A"
+if "!_ebc!"=="200" (
+  echo [wait] Backend listo ^(HTTP 200^).
+  exit /b 0
+)
+timeout /t 2 /nobreak >nul
+goto _EB_LOOP
+
+
+REM Espera a que el gateway devuelva 200 en /mascotas (circuito cerrado + backend sano).
+:_ESPERAR_GATEWAY_MASCOTAS_200
+echo [wait] Gateway GET %GATEWAY%/mascotas hasta HTTP 200 ^(max ~60s^)...
+set /a _gw=0
+:_GW_LOOP
+set /a _gw+=1
+if !_gw! gtr 30 (
+  echo [wait] ADVERTENCIA: gateway /mascotas no respondio 200 tras 30 intentos.
+  exit /b 0
+)
+for /f %%A in ('curl.exe -s -o NUL -w "%%{http_code}" "%GATEWAY%/mascotas" 2^>nul') do set "_gwc=%%A"
+if "!_gwc!"=="200" (
+  echo [wait] Gateway /mascotas listo ^(HTTP 200^).
+  exit /b 0
+)
+timeout /t 2 /nobreak >nul
+goto _GW_LOOP
 
 
 :FIN
