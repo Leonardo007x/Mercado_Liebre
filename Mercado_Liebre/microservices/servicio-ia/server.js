@@ -6,6 +6,14 @@ const crypto = require('crypto');
 const pino = require('pino');
 const pinoHttp = require('pino-http');
 const CircuitBreaker = require('opossum');
+// Helpers compartidos para resiliencia (eventos del breaker, half-open) y health uniforme.
+const {
+  attachBreakerLogs,
+  getBreakerState,
+  classifyBreakerError,
+  pingDb,
+  buildHealthPayload,
+} = require('./lib/resilience');
 
 /**
  * Microservicio IA — encapsula llamadas a Groq para evitar exponer API keys en frontend.
@@ -49,6 +57,7 @@ const dbConfig = {
 let pool;
 
 // Circuit breaker para proveedor externo (Groq): evita reintentos infinitos/cascada.
+// attachBreakerLogs (más abajo) publica transiciones CLOSED/OPEN/HALF-OPEN en logs.
 const groqBreaker = new CircuitBreaker(
   async ({ body }) => {
     const controller = new AbortController();
@@ -78,6 +87,12 @@ const groqBreaker = new CircuitBreaker(
     name: 'ia-groq',
   }
 );
+
+// Suscribimos eventos del breaker al logger para observar transiciones de estado.
+attachBreakerLogs(groqBreaker, logger);
+
+// Registro central de breakers de este servicio (lo expone /api/health/breakers).
+const breakers = [groqBreaker];
 
 // Espera activa para soportar arranques por etapas en Docker Compose.
 async function waitForDb(p, maxAttempts = 40, delayMs = 2000) {
@@ -159,35 +174,77 @@ app.post('/api/ia/generar', requireAuth, async (req, res) => {
     return res.json({ contenido });
   } catch (e) {
     // Error técnico inesperado (red, timeout, parse, DB, etc.).
+    // classifyBreakerError distingue bloqueo del propio circuito vs error real de Groq.
+    const reason = classifyBreakerError(e);
     const msg = e?.message || 'Error generando contenido';
     try {
       await pool.query(
         'INSERT INTO ia_generaciones (id, usuario_id, provider, modelo, prompt_usuario, prompt_sistema, respuesta, error_msg) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [rowId, req.user.sub, 'groq', GROQ_MODEL, mensajeUsuario, mensajeSistema, null, msg]
+        [rowId, req.user.sub, 'groq', GROQ_MODEL, mensajeUsuario, mensajeSistema, null, `[${reason}] ${msg}`]
       );
     } catch {
       // noop
     }
-    req.log.error({ err: e }, '[ia] /api/ia/generar');
-    return res.status(500).json({ error: msg });
+    req.log.error({ err: e?.message, breaker: 'ia-groq', reason }, '[ia] /api/ia/generar');
+    // Si fue el circuito el que cortó, devolvemos 503 (servicio degradado), no 500.
+    const httpStatus = reason === 'circuit_open' ? 503 : 500;
+    return res.status(httpStatus).json({
+      error: reason === 'circuit_open' ? 'Servicio IA temporalmente protegido (circuit breaker)' : msg,
+      reason,
+    });
   }
 });
 
+// ---------------------------------------------------------------
+// Healthchecks unificados (mismo contrato en todos los servicios)
+// ---------------------------------------------------------------
 app.get('/api/health', async (_req, res) => {
-  let total = null;
   try {
-    const [rows] = await pool.query('SELECT COUNT(*) AS total FROM ia_generaciones');
-    total = rows[0].total;
-  } catch {
-    total = null;
+    const db = await pingDb(pool);
+    let total = null;
+    if (db.ok) {
+      try {
+        const [rows] = await pool.query('SELECT COUNT(*) AS total FROM ia_generaciones');
+        total = rows[0].total;
+      } catch {
+        total = null;
+      }
+    }
+    const breakersState = breakers.map(getBreakerState);
+    const payload = buildHealthPayload({
+      service: SERVICE_NAME,
+      db,
+      breakers: breakersState,
+      extras: {
+        database_host: process.env.DB_HOST,
+        groq_configured: !!GROQ_API_KEY,
+        total_generaciones: total,
+      },
+    });
+    res.status(payload.status === 'down' ? 503 : 200).json(payload);
+  } catch (err) {
+    logger.error({ err }, '[ia] GET /api/health');
+    res.status(500).json({ error: 'health_check_failed', service: SERVICE_NAME });
   }
-  res.json({
-    service: 'ia-service',
-    status: 'ok',
-    database_host: process.env.DB_HOST,
-    groq_configured: !!GROQ_API_KEY,
-    total_generaciones: total,
-  });
+});
+
+app.get('/api/health/ready', async (_req, res) => {
+  try {
+    const db = await pingDb(pool);
+    res.status(db.ok ? 200 : 503).json({ service: SERVICE_NAME, ready: db.ok, db });
+  } catch (err) {
+    logger.error({ err }, '[ia] GET /api/health/ready');
+    res.status(500).json({ error: 'health_ready_failed', service: SERVICE_NAME });
+  }
+});
+
+app.get('/api/health/breakers', (_req, res) => {
+  try {
+    res.json({ service: SERVICE_NAME, breakers: breakers.map(getBreakerState) });
+  } catch (err) {
+    logger.error({ err }, '[ia] GET /api/health/breakers');
+    res.status(500).json({ error: 'health_breakers_failed', service: SERVICE_NAME });
+  }
 });
 
 // Secuencia de arranque controlada.

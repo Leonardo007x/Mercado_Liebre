@@ -10,6 +10,14 @@ const crypto = require('crypto');
 const pino = require('pino');
 const pinoHttp = require('pino-http');
 const CircuitBreaker = require('opossum');
+// Helpers compartidos: logs de eventos del Circuit Breaker (incluye half-open) y health uniforme.
+const {
+  attachBreakerLogs,
+  getBreakerState,
+  classifyBreakerError,
+  pingDb,
+  buildHealthPayload,
+} = require('./lib/resilience');
 
 // Inicialización del microservicio catálogo (productos).
 const app = express();
@@ -81,7 +89,14 @@ function createJsonBreaker(name) {
 }
 
 // Circuit breaker para proteger la validación distribuida de owner en tiendas-service.
-const tiendasOwnerBreaker = createJsonBreaker('catalogo-tiendas-owner');
+// attachBreakerLogs deja en logs estructurados cada transición de estado del circuito.
+const tiendasOwnerBreaker = attachBreakerLogs(
+  createJsonBreaker('catalogo-tiendas-owner'),
+  logger
+);
+
+// Registro central de breakers del servicio (lo expone /api/health/breakers).
+const breakers = [tiendasOwnerBreaker];
 
 // Espera activa de DB para arranque robusto en Compose.
 async function waitForDb(p, maxAttempts = 40, delayMs = 2000) {
@@ -155,7 +170,12 @@ async function assertUserOwnsTienda(tiendaId, userId) {
     if (!result.ok) return false;
     return result.data?.usuario_id === userId;
   } catch (e) {
-    logger.error({ err: e }, '[catalogo] assertUserOwnsTienda');
+    // Etiquetamos la razón: bloqueo del propio breaker vs error real del backend.
+    const reason = classifyBreakerError(e);
+    logger.error(
+      { err: e?.message, breaker: 'catalogo-tiendas-owner', reason },
+      '[catalogo] assertUserOwnsTienda'
+    );
     return false;
   }
 }
@@ -283,14 +303,46 @@ app.delete('/api/productos/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Healthcheck de catálogo.
-app.get('/api/health', (req, res) => {
-  res.json({
-    service: 'catalogo-service',
-    status: 'ok',
-    database_host: process.env.DB_HOST,
-    tiendas_url: TIENDAS_URL,
-  });
+// ---------------------------------------------------------------
+// Healthchecks unificados (mismo contrato en todos los servicios)
+// ---------------------------------------------------------------
+app.get('/api/health', async (_req, res) => {
+  try {
+    const db = await pingDb(pool);
+    const breakersState = breakers.map(getBreakerState);
+    const payload = buildHealthPayload({
+      service: SERVICE_NAME,
+      db,
+      breakers: breakersState,
+      extras: {
+        database_host: process.env.DB_HOST,
+        tiendas_url: TIENDAS_URL,
+      },
+    });
+    res.status(payload.status === 'down' ? 503 : 200).json(payload);
+  } catch (err) {
+    logger.error({ err }, '[catalogo] GET /api/health');
+    res.status(500).json({ error: 'health_check_failed', service: SERVICE_NAME });
+  }
+});
+
+app.get('/api/health/ready', async (_req, res) => {
+  try {
+    const db = await pingDb(pool);
+    res.status(db.ok ? 200 : 503).json({ service: SERVICE_NAME, ready: db.ok, db });
+  } catch (err) {
+    logger.error({ err }, '[catalogo] GET /api/health/ready');
+    res.status(500).json({ error: 'health_ready_failed', service: SERVICE_NAME });
+  }
+});
+
+app.get('/api/health/breakers', (_req, res) => {
+  try {
+    res.json({ service: SERVICE_NAME, breakers: breakers.map(getBreakerState) });
+  } catch (err) {
+    logger.error({ err }, '[catalogo] GET /api/health/breakers');
+    res.status(500).json({ error: 'health_breakers_failed', service: SERVICE_NAME });
+  }
 });
 
 // Arranque ordenado del servicio.

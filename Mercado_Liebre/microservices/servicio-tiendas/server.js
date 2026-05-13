@@ -11,6 +11,14 @@ const crypto = require('crypto');
 const pino = require('pino');
 const pinoHttp = require('pino-http');
 const CircuitBreaker = require('opossum');
+// Helpers compartidos para logs de Circuit Breaker (incluye half-open) y healthcheck unificado.
+const {
+  attachBreakerLogs,
+  getBreakerState,
+  classifyBreakerError,
+  pingDb,
+  buildHealthPayload,
+} = require('./lib/resilience');
 
 // Inicialización del servicio y variables globales.
 const app = express();
@@ -82,7 +90,15 @@ function createJsonBreaker(name) {
 }
 
 // Circuit breaker para la composición de vista pública desde catalogo-service.
-const catalogoProductosBreaker = createJsonBreaker('tiendas-catalogo-productos');
+// attachBreakerLogs hace observable la transición CLOSED -> OPEN -> HALF-OPEN -> CLOSED
+// en los logs (Pino) sin duplicar lógica en cada endpoint.
+const catalogoProductosBreaker = attachBreakerLogs(
+  createJsonBreaker('tiendas-catalogo-productos'),
+  logger
+);
+
+// Registro central de breakers de este servicio (lo expone /api/health/breakers).
+const breakers = [catalogoProductosBreaker];
 
 // Espera activa de disponibilidad MySQL en entorno containerizado.
 async function waitForDb(p, maxAttempts = 40, delayMs = 2000) {
@@ -232,12 +248,34 @@ app.get('/api/tiendas/:id/vista-publica', async (req, res) => {
     }
 
     // fire() ejecuta la llamada protegida; si falla repetidamente, el circuito se abre.
-    const prodResult = await catalogoProductosBreaker.fire({
-      url: `${CATALOGO_URL}/api/productos?tienda_id=${encodeURIComponent(id)}&activo=true`,
-    });
+    let prodResult;
+    try {
+      prodResult = await catalogoProductosBreaker.fire({
+        url: `${CATALOGO_URL}/api/productos?tienda_id=${encodeURIComponent(id)}&activo=true`,
+      });
+    } catch (fireErr) {
+      // Diferenciamos un fallo real del backend frente a un rechazo del propio circuito
+      // (estado open) para que el log y el cliente lo distingan claramente.
+      const reason = classifyBreakerError(fireErr);
+      req.log.warn(
+        { reason, breaker: 'tiendas-catalogo-productos', err: fireErr?.message },
+        '[tiendas] vista-publica: llamada a catalogo bloqueada o fallida'
+      );
+      const httpStatus = reason === 'circuit_open' ? 503 : 502;
+      return res.status(httpStatus).json({
+        error:
+          reason === 'circuit_open'
+            ? 'Catálogo temporalmente protegido por circuit breaker'
+            : 'Catálogo no disponible',
+        reason,
+      });
+    }
     if (!prodResult.ok) {
-      req.log.error({ status: prodResult.status, body: prodResult.raw }, '[tiendas] catalogo productos');
-      return res.status(502).json({ error: 'Catálogo no disponible' });
+      req.log.error(
+        { status: prodResult.status, body: prodResult.raw, reason: 'upstream_error' },
+        '[tiendas] catalogo productos'
+      );
+      return res.status(502).json({ error: 'Catálogo no disponible', reason: 'upstream_error' });
     }
     const rawProductos = prodResult.data;
     const productos = Array.isArray(rawProductos)
@@ -459,14 +497,56 @@ app.patch('/api/temas/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Healthcheck del dominio tiendas.
-app.get('/api/health', (req, res) => {
-  res.json({
-    service: 'tiendas-service',
-    status: 'ok',
-    database_host: process.env.DB_HOST,
-    catalogo_url: CATALOGO_URL,
-  });
+// ---------------------------------------------------------------
+// Healthchecks unificados
+// ---------------------------------------------------------------
+// /api/health           -> visión general (DB + breakers + proceso)
+// /api/health/ready     -> readiness (200 si está listo para tráfico)
+// /api/health/breakers  -> estado y stats de cada circuit breaker
+//
+// La forma uniforme la genera lib/resilience#buildHealthPayload para
+// que todos los microservicios respondan con el mismo contrato.
+app.get('/api/health', async (req, res) => {
+  try {
+    const db = await pingDb(pool);
+    const breakersState = breakers.map(getBreakerState);
+    const payload = buildHealthPayload({
+      service: SERVICE_NAME,
+      db,
+      breakers: breakersState,
+      extras: {
+        database_host: process.env.DB_HOST,
+        catalogo_url: CATALOGO_URL,
+      },
+    });
+    res.status(payload.status === 'down' ? 503 : 200).json(payload);
+  } catch (err) {
+    (req.log || logger).error({ err }, '[tiendas] GET /api/health');
+    res.status(500).json({ error: 'health_check_failed', service: SERVICE_NAME });
+  }
+});
+
+app.get('/api/health/ready', async (_req, res) => {
+  try {
+    const db = await pingDb(pool);
+    // Readiness: el servicio está listo si su BD responde. Los breakers
+    // abiertos no impiden recibir tráfico (es justamente su trabajo
+    // proteger al backend mientras se recupera).
+    const ready = db.ok;
+    res.status(ready ? 200 : 503).json({ service: SERVICE_NAME, ready, db });
+  } catch (err) {
+    logger.error({ err }, '[tiendas] GET /api/health/ready');
+    res.status(500).json({ error: 'health_ready_failed', service: SERVICE_NAME });
+  }
+});
+
+app.get('/api/health/breakers', (_req, res) => {
+  try {
+    res.json({ service: SERVICE_NAME, breakers: breakers.map(getBreakerState) });
+  } catch (err) {
+    logger.error({ err }, '[tiendas] GET /api/health/breakers');
+    res.status(500).json({ error: 'health_breakers_failed', service: SERVICE_NAME });
+  }
 });
 
 // Secuencia de arranque controlada.

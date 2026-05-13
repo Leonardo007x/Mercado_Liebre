@@ -6,6 +6,14 @@ const crypto = require('crypto');
 const pino = require('pino');
 const pinoHttp = require('pino-http');
 const CircuitBreaker = require('opossum');
+// Helpers compartidos para resiliencia (eventos del breaker, half-open) y health uniforme.
+const {
+  attachBreakerLogs,
+  getBreakerState,
+  classifyBreakerError,
+  pingDb,
+  buildHealthPayload,
+} = require('./lib/resilience');
 
 /**
  * Microservicio Categorías — CRUD de categorías por tienda.
@@ -81,7 +89,14 @@ function createJsonBreaker(name) {
 }
 
 // Circuit breaker para la autorización distribuida contra tiendas-service.
-const tiendasOwnerBreaker = createJsonBreaker('categorias-tiendas-owner');
+// attachBreakerLogs publica cada transición (open, half_open, close) en logs estructurados.
+const tiendasOwnerBreaker = attachBreakerLogs(
+  createJsonBreaker('categorias-tiendas-owner'),
+  logger
+);
+
+// Registro central de breakers (lo expone /api/health/breakers).
+const breakers = [tiendasOwnerBreaker];
 
 // Espera activa de disponibilidad DB.
 async function waitForDb(p, maxAttempts = 40, delayMs = 2000) {
@@ -126,7 +141,12 @@ async function assertUserOwnsTienda(tiendaId, userId) {
     if (!result.ok) return false;
     return result.data?.usuario_id === userId;
   } catch (e) {
-    logger.error({ err: e }, '[categorias] assertUserOwnsTienda');
+    // Distinguimos bloqueo del breaker vs error real del backend.
+    const reason = classifyBreakerError(e);
+    logger.error(
+      { err: e?.message, breaker: 'categorias-tiendas-owner', reason },
+      '[categorias] assertUserOwnsTienda'
+    );
     return false;
   }
 }
@@ -215,22 +235,57 @@ app.delete('/api/categorias/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Healthcheck con métrica simple del dominio.
+// ---------------------------------------------------------------
+// Healthchecks unificados (mismo contrato en todos los servicios)
+// ---------------------------------------------------------------
 app.get('/api/health', async (_req, res) => {
-  let total = null;
   try {
-    const [rows] = await pool.query('SELECT COUNT(*) AS total FROM categorias');
-    total = rows[0].total;
-  } catch {
-    total = null;
+    const db = await pingDb(pool);
+    // Métrica de dominio extra (cuenta de categorías) si la BD respondió.
+    let total = null;
+    if (db.ok) {
+      try {
+        const [rows] = await pool.query('SELECT COUNT(*) AS total FROM categorias');
+        total = rows[0].total;
+      } catch {
+        total = null;
+      }
+    }
+    const breakersState = breakers.map(getBreakerState);
+    const payload = buildHealthPayload({
+      service: SERVICE_NAME,
+      db,
+      breakers: breakersState,
+      extras: {
+        database_host: process.env.DB_HOST,
+        tiendas_url: TIENDAS_URL,
+        total_categorias: total,
+      },
+    });
+    res.status(payload.status === 'down' ? 503 : 200).json(payload);
+  } catch (err) {
+    logger.error({ err }, '[categorias] GET /api/health');
+    res.status(500).json({ error: 'health_check_failed', service: SERVICE_NAME });
   }
-  res.json({
-    service: 'categorias-service',
-    status: 'ok',
-    database_host: process.env.DB_HOST,
-    tiendas_url: TIENDAS_URL,
-    total_categorias: total,
-  });
+});
+
+app.get('/api/health/ready', async (_req, res) => {
+  try {
+    const db = await pingDb(pool);
+    res.status(db.ok ? 200 : 503).json({ service: SERVICE_NAME, ready: db.ok, db });
+  } catch (err) {
+    logger.error({ err }, '[categorias] GET /api/health/ready');
+    res.status(500).json({ error: 'health_ready_failed', service: SERVICE_NAME });
+  }
+});
+
+app.get('/api/health/breakers', (_req, res) => {
+  try {
+    res.json({ service: SERVICE_NAME, breakers: breakers.map(getBreakerState) });
+  } catch (err) {
+    logger.error({ err }, '[categorias] GET /api/health/breakers');
+    res.status(500).json({ error: 'health_breakers_failed', service: SERVICE_NAME });
+  }
 });
 
 // Arranque controlado del microservicio.

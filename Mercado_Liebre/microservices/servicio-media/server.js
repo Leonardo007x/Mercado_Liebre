@@ -7,6 +7,15 @@ const cloudinary = require('cloudinary').v2;
 const crypto = require('crypto');
 const pino = require('pino');
 const pinoHttp = require('pino-http');
+const CircuitBreaker = require('opossum');
+// Helpers compartidos: logs de Circuit Breaker (half-open), health y clasificación de errores.
+const {
+  attachBreakerLogs,
+  getBreakerState,
+  classifyBreakerError,
+  pingDb,
+  buildHealthPayload,
+} = require('./lib/resilience');
 
 /**
  * Microservicio Media — responsable de subida de archivos e integración Cloudinary.
@@ -47,6 +56,24 @@ const dbConfig = {
 
 let pool;
 let cloudinaryUploadsEnabled = false;
+
+// Circuit breaker sobre la API externa Cloudinary (half-open vía resetTimeout de Opossum).
+// Protege el endpoint de subida cuando el SaaS falla o tarda demasiado.
+const cloudinaryUploadBreaker = attachBreakerLogs(
+  new CircuitBreaker(
+    async ({ b64, uploadOpts }) => cloudinary.uploader.upload(b64, uploadOpts),
+    {
+      timeout: Number(process.env.CB_TIMEOUT_MS || 60000),
+      errorThresholdPercentage: Number(process.env.CB_ERROR_THRESHOLD || 50),
+      resetTimeout: Number(process.env.CB_RESET_TIMEOUT_MS || 15000),
+      volumeThreshold: Number(process.env.CB_VOLUME_THRESHOLD || 3),
+      name: 'media-cloudinary-upload',
+    }
+  ),
+  logger
+);
+
+const breakers = [cloudinaryUploadBreaker];
 
 // Validación de archivos entrantes (tipo + tamaño) en memoria.
 const uploadMem = multer({
@@ -134,11 +161,31 @@ app.post(
     }
     try {
       const b64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-      const result = await cloudinary.uploader.upload(b64, {
-        folder: 'mercadoliebre',
-        resource_type: 'image',
-      });
-      const url = optimizeCloudinaryUrl(result.secure_url);
+      let uploadResult;
+      try {
+        uploadResult = await cloudinaryUploadBreaker.fire({
+          b64,
+          uploadOpts: {
+            folder: 'mercadoliebre',
+            resource_type: 'image',
+          },
+        });
+      } catch (fireErr) {
+        const reason = classifyBreakerError(fireErr);
+        req.log.warn(
+          { reason, breaker: 'media-cloudinary-upload', err: fireErr?.message },
+          '[media] upload: Cloudinary bloqueado o fallido por circuit breaker'
+        );
+        const status = reason === 'circuit_open' ? 503 : 502;
+        return res.status(status).json({
+          error:
+            reason === 'circuit_open'
+              ? 'Subida temporalmente protegida por circuit breaker'
+              : 'Error al contactar Cloudinary',
+          reason,
+        });
+      }
+      const url = optimizeCloudinaryUrl(uploadResult.secure_url);
       await pool.query(
         'INSERT INTO media_assets (id, usuario_id, url, provider, mime_type, bytes_size) VALUES (?, ?, ?, ?, ?, ?)',
         [
@@ -158,22 +205,62 @@ app.post(
   }
 );
 
-// Healthcheck con señal operativa (uploads totales registrados).
+// ---------------------------------------------------------------
+// Healthchecks unificados (mismo contrato que el resto de servicios)
+// ---------------------------------------------------------------
 app.get('/api/health', async (_req, res) => {
-  let uploads = null;
   try {
-    const [rows] = await pool.query('SELECT COUNT(*) AS total FROM media_assets');
-    uploads = rows[0].total;
-  } catch {
-    uploads = null;
+    const db = await pingDb(pool);
+    let uploads = null;
+    if (db.ok) {
+      try {
+        const [rows] = await pool.query('SELECT COUNT(*) AS total FROM media_assets');
+        uploads = rows[0].total;
+      } catch {
+        uploads = null;
+      }
+    }
+    const breakersState = breakers.map(getBreakerState);
+    const payload = buildHealthPayload({
+      service: SERVICE_NAME,
+      db,
+      breakers: breakersState,
+      extras: {
+        database_host: process.env.DB_HOST,
+        cloudinary_enabled: cloudinaryUploadsEnabled,
+        uploads_count: uploads,
+      },
+    });
+    res.status(payload.status === 'down' ? 503 : 200).json(payload);
+  } catch (err) {
+    logger.error({ err }, '[media] GET /api/health');
+    res.status(500).json({ error: 'health_check_failed', service: SERVICE_NAME });
   }
-  res.json({
-    service: 'media-service',
-    status: 'ok',
-    database_host: process.env.DB_HOST,
-    cloudinary_enabled: cloudinaryUploadsEnabled,
-    uploads_count: uploads,
-  });
+});
+
+app.get('/api/health/ready', async (_req, res) => {
+  try {
+    const db = await pingDb(pool);
+    const ready = db.ok;
+    res.status(ready ? 200 : 503).json({
+      service: SERVICE_NAME,
+      ready,
+      db,
+      cloudinary_enabled: cloudinaryUploadsEnabled,
+    });
+  } catch (err) {
+    logger.error({ err }, '[media] GET /api/health/ready');
+    res.status(500).json({ error: 'health_ready_failed', service: SERVICE_NAME });
+  }
+});
+
+app.get('/api/health/breakers', (_req, res) => {
+  try {
+    res.json({ service: SERVICE_NAME, breakers: breakers.map(getBreakerState) });
+  } catch (err) {
+    logger.error({ err }, '[media] GET /api/health/breakers');
+    res.status(500).json({ error: 'health_breakers_failed', service: SERVICE_NAME });
+  }
 });
 
 // Secuencia de arranque: DB -> Cloudinary -> servidor HTTP.

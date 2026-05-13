@@ -10,6 +10,15 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pino = require('pino');
 const pinoHttp = require('pino-http');
+const CircuitBreaker = require('opossum');
+// Helpers compartidos: logs del Circuit Breaker (half-open), health y clasificación de errores.
+const {
+  attachBreakerLogs,
+  getBreakerState,
+  classifyBreakerError,
+  pingDb,
+  buildHealthPayload,
+} = require('./lib/resilience');
 
 // Inicialización del servicio y parámetros globales.
 const app = express();
@@ -45,6 +54,26 @@ const dbConfig = {
 };
 
 let pool;
+/** Circuit breaker sobre MySQL (dependencia del servicio). Se crea en bootstrap tras tener pool. */
+let mysqlAuthBreaker;
+
+/**
+ * Ejecuta SQL detrás del circuit breaker. Unifica logs y códigos cuando el circuito está abierto.
+ * @returns {{ ok: true, rows: any[] } | { ok: false, reason: string, err?: unknown }}
+ */
+async function queryThroughBreaker(req, sql, params) {
+  try {
+    const [rows] = await mysqlAuthBreaker.fire({ sql, params });
+    return { ok: true, rows };
+  } catch (e) {
+    const reason = classifyBreakerError(e);
+    (req?.log || logger).warn(
+      { reason, breaker: 'usuarios-mysql', err: e?.message },
+      '[usuarios] consulta MySQL bloqueada o fallida'
+    );
+    return { ok: false, reason, err: e };
+  }
+}
 
 // Reintenta conexión a MySQL para soportar arranques por etapas en Docker.
 async function waitForDb(p, maxAttempts = 40, delayMs = 2000) {
@@ -106,16 +135,36 @@ const handleRegister = async (req, res) => {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
   }
   try {
-    const [exists] = await pool.query('SELECT id FROM usuarios WHERE email = ?', [email]);
+    const q1 = await queryThroughBreaker(req, 'SELECT id FROM usuarios WHERE email = ?', [email]);
+    if (!q1.ok) {
+      if (q1.reason === 'circuit_open') {
+        return res.status(503).json({
+          error: 'Servicio temporalmente protegido (circuit breaker sobre base de datos)',
+          reason: q1.reason,
+        });
+      }
+      return res.status(500).json({ error: 'Error al registrar', detail: q1.err?.message });
+    }
+    const exists = q1.rows;
     if (exists.length) {
       return res.status(409).json({ error: 'Este correo ya está registrado' });
     }
     const id = crypto.randomUUID();
     const password_hash = await bcrypt.hash(password, 10);
-    await pool.query(
+    const q2 = await queryThroughBreaker(
+      req,
       'INSERT INTO usuarios (id, email, nombre, apellido, password_hash) VALUES (?, ?, ?, ?, ?)',
       [id, email, nombre, apellido, password_hash]
     );
+    if (!q2.ok) {
+      if (q2.reason === 'circuit_open') {
+        return res.status(503).json({
+          error: 'Servicio temporalmente protegido (circuit breaker sobre base de datos)',
+          reason: q2.reason,
+        });
+      }
+      return res.status(500).json({ error: 'Error al registrar', detail: q2.err?.message });
+    }
     const token = signToken({ sub: id, email });
     return res.status(201).json({
       token,
@@ -137,10 +186,21 @@ const handleLogin = async (req, res) => {
     return res.status(400).json({ error: 'Email y contraseña requeridos' });
   }
   try {
-    const [rows] = await pool.query(
+    const q1 = await queryThroughBreaker(
+      req,
       'SELECT id, email, nombre, apellido, password_hash FROM usuarios WHERE email = ?',
       [email]
     );
+    if (!q1.ok) {
+      if (q1.reason === 'circuit_open') {
+        return res.status(503).json({
+          error: 'Servicio temporalmente protegido (circuit breaker sobre base de datos)',
+          reason: q1.reason,
+        });
+      }
+      return res.status(500).json({ error: 'Error al iniciar sesión', detail: q1.err?.message });
+    }
+    const rows = q1.rows;
     const u = rows[0];
     if (!u || !u.password_hash) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -174,10 +234,21 @@ app.post('/api/login', handleLogin);
 // Ruta protegida: perfil actual del usuario autenticado.
 app.get('/api/auth/me', requireAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query(
+    const q1 = await queryThroughBreaker(
+      req,
       'SELECT id, email, nombre, apellido FROM usuarios WHERE id = ?',
       [req.user.sub]
     );
+    if (!q1.ok) {
+      if (q1.reason === 'circuit_open') {
+        return res.status(503).json({
+          error: 'Servicio temporalmente protegido (circuit breaker sobre base de datos)',
+          reason: q1.reason,
+        });
+      }
+      return res.status(500).json({ error: 'Error interno' });
+    }
+    const rows = q1.rows;
     const u = rows[0];
     if (!u) return res.status(404).json({ error: 'Usuario no encontrado' });
     return res.json({ id: u.id, email: u.email, nombre: u.nombre, apellido: u.apellido });
@@ -187,21 +258,64 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
   }
 });
 
-// Healthcheck de servicio para gateway/observabilidad.
-app.get('/api/health', (req, res) => {
-  res.json({
-    service: 'usuarios-service',
-    status: 'ok',
-    database_host: process.env.DB_HOST,
-  });
+// Healthchecks unificados (incluye estado del circuit breaker sobre MySQL).
+app.get('/api/health', async (_req, res) => {
+  try {
+    const db = await pingDb(pool);
+    const breakersState = mysqlAuthBreaker ? [mysqlAuthBreaker].map(getBreakerState) : [];
+    const payload = buildHealthPayload({
+      service: SERVICE_NAME,
+      db,
+      breakers: breakersState,
+      extras: { database_host: process.env.DB_HOST },
+    });
+    res.status(payload.status === 'down' ? 503 : 200).json(payload);
+  } catch (err) {
+    logger.error({ err }, '[usuarios] GET /api/health');
+    res.status(500).json({ error: 'health_check_failed', service: SERVICE_NAME });
+  }
 });
 
-// Secuencia de arranque controlada: DB -> migración -> HTTP server.
+app.get('/api/health/ready', async (_req, res) => {
+  try {
+    const db = await pingDb(pool);
+    res.status(db.ok ? 200 : 503).json({ service: SERVICE_NAME, ready: db.ok, db });
+  } catch (err) {
+    logger.error({ err }, '[usuarios] GET /api/health/ready');
+    res.status(500).json({ error: 'health_ready_failed', service: SERVICE_NAME });
+  }
+});
+
+app.get('/api/health/breakers', (_req, res) => {
+  try {
+    const list = mysqlAuthBreaker ? [mysqlAuthBreaker] : [];
+    res.json({ service: SERVICE_NAME, breakers: list.map(getBreakerState) });
+  } catch (err) {
+    logger.error({ err }, '[usuarios] GET /api/health/breakers');
+    res.status(500).json({ error: 'health_breakers_failed', service: SERVICE_NAME });
+  }
+});
+
+// Secuencia de arranque controlada: DB -> migración -> breaker MySQL -> HTTP server.
 async function bootstrap() {
   try {
     pool = mysql.createPool(dbConfig);
     await waitForDb(pool);
     await ensureUsuariosPasswordHash(pool);
+    // Todas las consultas de rutas HTTP pasan por este breaker (logs open/half_open/close).
+    mysqlAuthBreaker = attachBreakerLogs(
+      new CircuitBreaker(
+        async ({ sql, params }) => pool.query(sql, params),
+        {
+          timeout: Number(process.env.CB_TIMEOUT_MS || 8000),
+          errorThresholdPercentage: Number(process.env.CB_ERROR_THRESHOLD || 50),
+          resetTimeout: Number(process.env.CB_RESET_TIMEOUT_MS || 15000),
+          volumeThreshold: Number(process.env.CB_VOLUME_THRESHOLD || 5),
+          name: 'usuarios-mysql',
+        }
+      ),
+      logger
+    );
     app.listen(port, () => {
       logger.info(`[usuarios] API en puerto ${port}`);
     });
