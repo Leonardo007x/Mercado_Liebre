@@ -53,60 +53,7 @@ Muchos negocios no tienen sitio propio, dependen de herramientas genéricas o re
 
 Leyenda: **host** = máquina donde corre Docker; **red interna** = `mercadoliebre-net` (DNS por nombre de servicio).
 
-```mermaid
-flowchart TB
-  subgraph host["Host (puertos publicados)"]
-    Browser["Navegador"]
-    FE["frontend\nhost :8280 → contenedor :80"]
-    GW["gateway API\nhost :3000 → contenedor :80"]
-  end
-
-  subgraph net["Red Docker: mercadoliebre-net"]
-    subgraph lb["Balanceo usuarios — round-robin"]
-      U1["usuarios-service\n:3001 — INSTANCE_ID usuarios-1"]
-      U2["usuarios-service-2\n:3001 — INSTANCE_ID usuarios-2"]
-    end
-
-    T["tiendas-service :3002"]
-    C["catalogo-service :3003"]
-    M["media-service :3004"]
-    CAT["categorias-service :3005"]
-    IA["ia-service :3006"]
-
-    DBU[("db-usuarios\nMySQL :3306")]
-    DBT[("db-tiendas\nMySQL :3306")]
-    DBC[("db-catalogo\nMySQL :3306")]
-    DBM[("db-media\nMySQL :3306")]
-    DBCA[("db-categorias\nMySQL :3306")]
-    DBI[("db-ia\nMySQL :3306")]
-  end
-
-  subgraph ext["Servicios externos"]
-    CL["Cloudinary API"]
-    GQ["Groq API"]
-  end
-
-  Browser --> FE
-  Browser --> GW
-  FE -->|"/api/* → gateway:80"| GW
-
-  GW --> U1 & U2
-  GW --> T & C & M & CAT & IA
-
-  U1 & U2 --> DBU
-  T --> DBT
-  C --> DBC
-  M --> DBM
-  CAT --> DBCA
-  IA --> DBI
-
-  T -->|"GET /api/productos"| C
-  C -->|"GET /internal/tiendas/:id/owner"| T
-  CAT -->|"GET /internal/tiendas/:id/owner"| T
-
-  M --> CL
-  IA --> GQ
-```
+![Arquitectura Mercado Liebre — frontend, gateway, microservicios, bases de datos y APIs externas](docs/images/arquitectura-mercado-liebre.png)
 
 ### Tabla de puertos y exposición
 
