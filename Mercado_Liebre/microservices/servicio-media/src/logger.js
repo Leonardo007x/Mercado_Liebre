@@ -3,7 +3,7 @@
 const { createServiceLoggerBundle } = require('@mercadoliebre/resilience');
 const { LOG_LEVEL, SERVICE_NAME, LOG_FORMAT } = require('./config');
 
-const { logger, httpLogger } = createServiceLoggerBundle({
+const { logger, httpLogger, httpErrorLogger } = createServiceLoggerBundle({
   serviceName: SERVICE_NAME,
   level: LOG_LEVEL,
   format: LOG_FORMAT,
@@ -11,4 +11,4 @@ const { logger, httpLogger } = createServiceLoggerBundle({
   customProps: (req) => ({ requestId: req.requestId }),
 });
 
-module.exports = { logger, httpLogger };
+module.exports = { logger, httpLogger, httpErrorLogger };

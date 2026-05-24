@@ -365,6 +365,16 @@ services:
       context: ./gateway
       dockerfile: Dockerfile
     container_name: mercadoliebre_gateway
+    env_file:
+      - .env
+    environment:
+      USUARIOS_SERVICE_PORT: "${USUARIOS_SERVICE_PORT}"
+      TIENDAS_SERVICE_PORT: "${TIENDAS_SERVICE_PORT}"
+      CATALOGO_SERVICE_PORT: "${CATALOGO_SERVICE_PORT}"
+      MEDIA_SERVICE_PORT: "${MEDIA_SERVICE_PORT}"
+      CATEGORIAS_SERVICE_PORT: "${CATEGORIAS_SERVICE_PORT}"
+      IA_SERVICE_PORT: "${IA_SERVICE_PORT}"
+      HEALTH_PROBE_TIMEOUT_MS: "${HEALTH_PROBE_TIMEOUT_MS:-3500}"
     ports:
       # Puerto público del API Gateway para clientes/Front/Vite proxy.
       - "${GATEWAY_HOST_PORT}:80"

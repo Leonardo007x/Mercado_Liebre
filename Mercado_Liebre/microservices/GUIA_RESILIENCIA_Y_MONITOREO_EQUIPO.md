@@ -104,22 +104,71 @@ microservices/servicio-XXX/src/index.js    → monta httpLogger
 
 ### Cómo funcionan
 
-1. **Pino** escribe JSON estructurado a stdout (Docker lo captura).
+1. **Pino** escribe a stdout (Docker lo captura). Con `LOG_FORMAT=pretty` (default) las líneas son legibles en CMD.
 2. Cada log lleva `service: "nombre-service"` (ej. `catalogo-service`).
-3. En rutas HTTP, `req.log` incluye `requestId` para seguir una petición.
-4. Eventos del breaker usan `event: 'circuit_breaker'` y `state: 'open' | 'half_open' | 'closed'`.
+3. **Arranque:** al iniciar verás `[inicio] Arrancando ...` y luego `[OK] Servicio iniciado correctamente: ...`.
+4. **Errores HTTP:** cada respuesta 4xx/5xx deja un log con el detalle exacto, por ejemplo:
+   - `[HTTP 400] POST /api/productos — tienda_id requerido`
+   - `[HTTP 500] GET /api/productos — Error interno conectando a la BD`
+5. En rutas HTTP, `req.log` incluye `requestId` para seguir una petición.
+6. **Circuit breaker:** transiciones en tiempo real con mensajes claros:
+   - `[circuit breaker] ABIERTO (...)` — circuito abierto, rechaza llamadas.
+   - `[circuit breaker] SEMIABIERTO (...)` — prueba de recuperación (half-open).
+   - `[circuit breaker] CERRADO (...)` — backend estable, tráfico normal.
 
-### Cómo verlos
+### Cómo verlos en vivo (CMD / PowerShell)
+
+Desde la raíz `Mercado_Liebre/`:
 
 ```powershell
-# Desde la raíz Mercado_Liebre/
-docker compose logs usuarios-service --tail 50
+# Levantar el stack (si no está corriendo)
+docker compose up -d
+
+# Logs en vivo de UN servicio (recomendado)
+docker compose logs -f catalogo-service
+docker compose logs -f tiendas-service
+docker compose logs -f usuarios-service
+
+# Varios servicios a la vez
+docker compose logs -f catalogo-service tiendas-service gateway
+
+# Solo mensajes de circuit breaker (ABIERTO / SEMIABIERTO / CERRADO)
+docker compose logs -f tiendas-service 2>&1 | findstr /I "circuit breaker ABIERTO SEMIABIERTO CERRADO"
+
+# Solo errores HTTP 400/500 con detalle
+docker compose logs -f catalogo-service 2>&1 | findstr /I "HTTP 400 HTTP 500 http_error"
+
+# Últimas 50 líneas (sin seguir en vivo)
 docker compose logs catalogo-service --tail 50
+
+# Script automático: abre ventanas CMD con logs en vivo
+.\test-resiliencia.bat
+```
+
+**Sin Docker** (desarrollo local, desde `microservices/servicio-catalogo/`):
+
+```powershell
+$env:LOG_FORMAT="pretty"
+$env:LOG_LEVEL="info"
+node src/index.js
+```
+
+### Ejemplos de lo que verás en consola
+
+```
+catalogo-service | [inicio] Arrancando catalogo-service...
+catalogo-service | [catalogo] Conexión a MySQL establecida; base lista para consultas.
+catalogo-service | [OK] Servicio iniciado correctamente: catalogo-service escuchando en puerto 3003 | tiendas_url=http://tiendas-service:3002
+catalogo-service | GET /api/productos → 200 OK (8ms)
+catalogo-service | [HTTP 400] POST /api/productos — tienda_id requerido
+tiendas-service  | [circuit breaker] ABIERTO (tiendas-catalogo-productos): se bloquean nuevas llamadas...
+tiendas-service  | [circuit breaker] SEMIABIERTO (tiendas-catalogo-productos): se permite una solicitud de prueba...
+tiendas-service  | [circuit breaker] CERRADO (tiendas-catalogo-productos): backend estable, tráfico restablecido.
 ```
 
 ### Qué decir en la sustentación
 
-*"Usamos Pino para logs estructurados: cada microservicio etiqueta su nombre, las rutas tienen requestId, y cuando el circuit breaker cambia de estado dejamos un log con `event: circuit_breaker` para auditar open, half-open y closed."*
+*"Usamos Pino para logs legibles en consola: cada microservicio muestra cuándo arranca, qué error HTTP ocurrió (400, 500, etc.) con el mensaje exacto, y cuando el circuit breaker cambia a ABIERTO, SEMIABIERTO o CERRADO."*
 
 ---
 
@@ -135,7 +184,8 @@ microservices/servicio-XXX/src/routes/health.routes.js
 
 | Ruta en gateway | Qué devuelve |
 |-----------------|--------------|
-| `GET /api/health` | Estado del gateway + estrategia de balanceo |
+| **`GET /api/health/all`** | **Monitoreo agregado de TODO el sistema** (todos los servicios + breakers, aunque alguno esté caído) |
+| `GET /api/health` | Estado del gateway + enlaces de monitoreo |
 | `GET /api/health/usuarios` | Health de usuarios (réplica al azar) |
 | `GET /api/health/tiendas` | Health de tiendas |
 | `GET /api/health/catalogo` | Health de catálogo |
@@ -158,8 +208,53 @@ También incluye: `db.latency_ms`, `breakers[].state`, `breakers[].stats` (succe
 ### Ejemplo rápido
 
 ```http
+GET http://localhost:3000/api/health/all
 GET http://localhost:3000/api/health/catalogo
 ```
+
+---
+
+## 4.1 Monitoreo agregado (`GET /api/health/all`) — **un solo lugar para ver todo**
+
+**Dónde está:** `gateway/health-aggregator.js` (proceso Node dentro del contenedor gateway).
+
+El gateway consulta en paralelo health + breakers de **todos** los microservicios. Si catálogo está caído, igual responde JSON con `"reachable": false` para catálogo y el resto sigue visible.
+
+### Demo en 3 pasos (para la sustentación)
+
+```powershell
+# 1. Levantar stack
+docker compose up -d --build
+
+# 2. Ver monitoreo completo (TODO en una URL)
+curl http://localhost:3000/api/health/all
+
+# 3. Tumbar catálogo y volver a consultar — catálogo aparece unreachable, tiendas sigue visible
+docker compose stop catalogo-service
+curl http://localhost:3000/api/health/all
+docker compose start catalogo-service
+```
+
+O ejecutar el script automático:
+
+```powershell
+.\test-resiliencia.bat
+```
+
+### Qué decir si la profe pregunta "¿dónde está el monitoreo?"
+
+*"El monitoreo centralizado está en el gateway, endpoint `GET /api/health/all`. Ahí vemos el estado de todos los microservicios, latencia, health de BD, circuit breakers y contadores de fallos. Si un servicio cae, el agregador lo marca como `unreachable` sin dejar de mostrar el resto. Complementamos con logs en tiempo real (`docker compose logs -f`) y health individual por servicio en `/api/health/{servicio}`."*
+
+### Campos clave de `/api/health/all`
+
+| Campo | Significado |
+|-------|-------------|
+| `overall` | `ok` / `degraded` / `down` del sistema completo |
+| `summary.by_service` | Resumen por servicio lógico (usuarios, tiendas, catalogo…) |
+| `summary.reachable` / `unreachable` | Cuántos servicios responden |
+| `services[].reachable` | Si ese target respondió |
+| `services[].health.payload` | Health completo del microservicio (si responde) |
+| `services[].breakers.payload` | Contadores Opossum: failures, rejects, fires… |
 
 ---
 
@@ -172,7 +267,11 @@ Health checks y breakers se consultan por el **gateway** (`http://localhost:3000
 ### Comandos útiles
 
 ```bash
+# Monitoreo agregado (recomendado — un solo JSON con todo)
+curl http://localhost:3000/api/health/all
+
 docker compose ps
+docker compose logs -f gateway
 docker compose logs -f usuarios-service
 docker compose logs catalogo-service 2>&1 | findstr circuit_breaker
 ```

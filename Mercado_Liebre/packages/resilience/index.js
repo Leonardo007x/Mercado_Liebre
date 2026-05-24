@@ -14,8 +14,12 @@
 
 const { attachBreakerLogs, classifyBreakerError } = require('./circuit-breaker');
 const { pingDb, getBreakerState, buildHealthPayload, getProcessInfo } = require('./health');
+const { logServiceBoot, logServiceReady } = require('./startup');
+const { createHttpErrorLogger } = require('./http-error-logger');
+const { registerApiErrorHandlers } = require('./error-handler');
 const {
   resolveLogFormat,
+  httpStatusLabel,
   createServiceLogger,
   createHttpLogger,
   createServiceLoggerBundle,
@@ -28,7 +32,12 @@ module.exports = {
   getBreakerState,
   buildHealthPayload,
   getProcessInfo,
+  logServiceBoot,
+  logServiceReady,
+  createHttpErrorLogger,
+  registerApiErrorHandlers,
   resolveLogFormat,
+  httpStatusLabel,
   createServiceLogger,
   createHttpLogger,
   createServiceLoggerBundle,

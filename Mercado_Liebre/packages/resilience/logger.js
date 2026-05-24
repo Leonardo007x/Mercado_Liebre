@@ -49,17 +49,39 @@ const httpSerializers = {
 /**
  * @param {{ logger: import('pino').Logger, genReqId?: Function, customProps?: Function }} opts
  */
+function httpStatusLabel(code) {
+  if (code >= 500) return 'error interno del servidor';
+  if (code === 404) return 'recurso no encontrado';
+  if (code === 403) return 'acceso denegado';
+  if (code === 401) return 'no autenticado';
+  if (code === 400) return 'solicitud inválida';
+  if (code === 409) return 'conflicto';
+  if (code === 503) return 'servicio no disponible';
+  if (code >= 400) return 'solicitud rechazada';
+  return 'OK';
+}
+
 function createHttpLogger({ logger, genReqId, customProps }) {
   return pinoHttp({
     logger,
     serializers: httpSerializers,
     genReqId: genReqId || ((req) => req.requestId),
     customProps,
+    customLogLevel(_req, res, err) {
+      if (err || res.statusCode >= 500) return 'error';
+      if (res.statusCode >= 400) return 'warn';
+      return 'info';
+    },
     customSuccessMessage(req, res, responseTime) {
-      return `${req.method} ${req.url} → ${res.statusCode} (${responseTime}ms)`;
+      const code = res.statusCode;
+      const line = `${req.method} ${req.url}`;
+      if (code >= 400) {
+        return `[HTTP ${code}] ${line} — ${httpStatusLabel(code)} (${responseTime}ms)`;
+      }
+      return `${line} → ${code} OK (${responseTime}ms)`;
     },
     customErrorMessage(req, res, err) {
-      return `${req.method} ${req.url} → error ${res.statusCode}: ${err?.message || 'unknown'}`;
+      return `[HTTP ${res.statusCode}] ${req.method} ${req.url} — excepción: ${err?.message || 'desconocida'}`;
     },
   });
 }
@@ -74,11 +96,14 @@ function createServiceLoggerBundle(opts) {
     genReqId: opts.genReqId,
     customProps: opts.customProps,
   });
-  return { logger, httpLogger };
+  const { createHttpErrorLogger } = require('./http-error-logger');
+  const httpErrorLogger = createHttpErrorLogger(logger);
+  return { logger, httpLogger, httpErrorLogger };
 }
 
 module.exports = {
   resolveLogFormat,
+  httpStatusLabel,
   createServiceLogger,
   createHttpLogger,
   createServiceLoggerBundle,

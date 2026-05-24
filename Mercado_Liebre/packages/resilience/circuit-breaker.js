@@ -22,40 +22,40 @@ function attachBreakerLogs(breaker, logger) {
   // Transición: CLOSED → OPEN. Se corta el tráfico al backend protegido.
   breaker.on('open', () => {
     logger.warn(
-      { event: 'circuit_breaker', breaker: name, state: 'open' },
-      `[resilience] Circuito ABIERTO (${name}): se bloquean nuevas llamadas hasta cumplir resetTimeout.`
+      { event: 'circuit_breaker', breaker: name, state: 'open', estado: 'ABIERTO' },
+      `[circuit breaker] ABIERTO (${name}): se bloquean nuevas llamadas hasta cumplir resetTimeout.`
     );
   });
 
   // Transición: OPEN → HALF-OPEN. Opossum permite una sola petición de prueba.
   breaker.on('halfOpen', () => {
     logger.warn(
-      { event: 'circuit_breaker', breaker: name, state: 'half_open' },
-      `[resilience] Circuito HALF-OPEN (${name}): se permite una solicitud de prueba para verificar recuperación.`
+      { event: 'circuit_breaker', breaker: name, state: 'half_open', estado: 'SEMIABIERTO' },
+      `[circuit breaker] SEMIABIERTO (${name}): se permite una solicitud de prueba para verificar recuperación.`
     );
   });
 
   // Transición: HALF-OPEN → CLOSED. Recuperación confirmada.
   breaker.on('close', () => {
     logger.info(
-      { event: 'circuit_breaker', breaker: name, state: 'closed' },
-      `[resilience] Circuito CERRADO (${name}): backend estable, tráfico restablecido.`
+      { event: 'circuit_breaker', breaker: name, state: 'closed', estado: 'CERRADO' },
+      `[circuit breaker] CERRADO (${name}): backend estable, tráfico restablecido.`
     );
   });
 
   // Llamada rechazada por el propio breaker (estado open). No llega al backend.
   breaker.on('reject', () => {
     logger.warn(
-      { event: 'circuit_breaker', breaker: name, reason: 'circuit_open' },
-      `[resilience] Solicitud rechazada (${name}): circuito abierto; no se invoca al backend.`
+      { event: 'circuit_breaker', breaker: name, reason: 'circuit_open', estado: 'ABIERTO' },
+      `[circuit breaker] Solicitud rechazada (${name}): circuito ABIERTO; no se invoca al backend.`
     );
   });
 
   // Timeout del breaker (la dependencia no respondió a tiempo).
   breaker.on('timeout', () => {
     logger.warn(
-      { event: 'circuit_breaker', breaker: name, reason: 'timeout' },
-      `[resilience] Timeout (${name}): la dependencia superó el tiempo máximo configurado.`
+      { event: 'circuit_breaker', breaker: name, reason: 'timeout', estado: breaker.open ? 'ABIERTO' : 'SEMIABIERTO' },
+      `[circuit breaker] Timeout (${name}): la dependencia superó el tiempo máximo configurado.`
     );
   });
 
@@ -63,7 +63,7 @@ function attachBreakerLogs(breaker, logger) {
   breaker.on('failure', (err) => {
     logger.error(
       { event: 'circuit_breaker', breaker: name, reason: 'upstream_error', err: err?.message },
-      `[resilience] Fallo del backend a través de ${name}.`
+      `[circuit breaker] Fallo del backend (${name}): ${err?.message || 'error desconocido'}.`
     );
   });
 
@@ -71,8 +71,8 @@ function attachBreakerLogs(breaker, logger) {
   breaker.on('success', () => {
     if (breaker.halfOpen) {
       logger.info(
-        { event: 'circuit_breaker', breaker: name, state: 'half_open_success' },
-        `[resilience] Prueba en HALF-OPEN exitosa (${name}): el circuito volverá a CERRADO.`
+        { event: 'circuit_breaker', breaker: name, state: 'half_open_success', estado: 'SEMIABIERTO' },
+        `[circuit breaker] Prueba exitosa en SEMIABIERTO (${name}): el circuito volverá a CERRADO.`
       );
     }
   });

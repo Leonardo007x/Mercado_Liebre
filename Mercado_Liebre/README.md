@@ -224,7 +224,8 @@ Opossum permite una petición de prueba en `half_open`; si tiene éxito, vuelve 
 - **Por servicio:** `GET /api/health/{servicio}` → `status`: `ok` | `degraded` | `down`, `db.latency_ms`, `breakers[]`.
 - **Gateway:** `GET /api/health` → JSON con estrategia de balanceo.
 - **Readiness:** `GET /api/health/ready` en cada microservicio.
-- **Agregado:** consultar `/api/health/{servicio}` y `/api/health/breakers/{servicio}` por cada microservicio (vía gateway).
+- **Agregado:** `GET /api/health/all` — monitoreo centralizado en el gateway (todos los servicios aunque alguno falle).
+- **Por servicio:** `GET /api/health/{servicio}` y `GET /api/health/breakers/{servicio}` vía gateway.
 
 ### Logs
 

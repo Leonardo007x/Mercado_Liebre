@@ -40,7 +40,13 @@ if "%OPEN_LOG_WINDOWS%"=="1" (
 )
 
 echo.
-echo [3/8] Health checks por gateway...
+echo [3/9] Monitoreo agregado del sistema (todos los microservicios)...
+echo [INFO] GET %BASE_URL%/api/health/all
+curl -s "%BASE_URL%/api/health/all"
+echo.
+
+echo.
+echo [4/9] Health checks por gateway...
 call :health "/api/health"
 call :health "/api/tiendas"
 call :health "/api/productos"
@@ -48,7 +54,7 @@ call :health "/api/categorias?tienda_id=dummy"
 call :health "/api/ia/health"
 
 echo.
-echo [4/8] Detectando tienda para prueba de vista publica...
+echo [5/9] Detectando tienda para prueba de vista publica...
 set "TIENDA_ID="
 for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command "$r=Invoke-RestMethod -Uri '%BASE_URL%/api/tiendas' -Method GET -ErrorAction SilentlyContinue; if($r -and $r.Count -gt 0){$r[0].id}"`) do (
   set "TIENDA_ID=%%i"
@@ -61,7 +67,7 @@ if "%TIENDA_ID%"=="" (
 echo [OK] TIENDA_ID detectada: %TIENDA_ID%
 
 echo.
-echo [5/8] Probando trazabilidad de logs con X-Request-Id: %RID%
+echo [6/9] Probando trazabilidad de logs con X-Request-Id: %RID%
 echo [INFO] Revisa la ventana "Logs Tiendas (breaker)" para ver el requestId.
 curl -s -H "X-Request-Id: %RID%" "%BASE_URL%/api/tiendas/%TIENDA_ID%/vista-publica" >nul
 
@@ -75,7 +81,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [6/8] Simulando falla de dependencia: parando catalogo-service...
+echo [7/9] Simulando falla de dependencia: parando catalogo-service...
 echo [INFO] Deberias ver errores de dependencia en la ventana de logs de tiendas.
 docker compose stop catalogo-service
 if errorlevel 1 (
@@ -90,9 +96,14 @@ for /L %%n in (1,1,%FAIL_CALLS%) do (
 )
 
 echo.
-echo [7/8] Revisando logs del CircuitBreaker en tiendas-service...
-echo [INFO] Buscando mensajes tipicos: "breaker", "open", "timed out", "EOPENBREAKER"
-docker compose logs --since 3m tiendas-service | findstr /I "breaker open timed out EOPENBREAKER"
+echo [8/9] Revisando monitoreo agregado con catalogo CAIDO...
+echo [INFO] catalogo debe aparecer como unreachable en /api/health/all
+curl -s "%BASE_URL%/api/health/all"
+echo.
+
+echo [INFO] Revisando logs del CircuitBreaker en tiendas-service...
+echo [INFO] Buscando mensajes del circuit breaker: ABIERTO, SEMIABIERTO, CERRADO
+docker compose logs --since 3m tiendas-service | findstr /I "circuit breaker ABIERTO SEMIABIERTO CERRADO"
 if errorlevel 1 (
   echo [WARN] No se detecto texto explicito del breaker en logs filtrados.
   echo        Igual valida que durante la falla devolvio 502 y luego se recupera.
@@ -102,7 +113,7 @@ if errorlevel 1 (
 echo [TIP] Aunque no salga la palabra "breaker", si viste 502 repetidos durante la caida y luego recuperacion, la resiliencia esta actuando.
 
 echo.
-echo [8/8] Restaurando catalogo-service y validando recuperacion...
+echo [9/9] Restaurando catalogo-service y validando recuperacion...
 docker compose start catalogo-service
 if errorlevel 1 (
   echo [ERROR] No se pudo iniciar catalogo-service.
@@ -118,7 +129,7 @@ echo.
 echo ==========================================
 echo [OK] Test finalizado.
 echo Resumen esperado:
-echo - Logs JSON visibles en microservicios.
+echo - Monitoreo agregado: GET /api/health/all (ve todos los servicios aunque uno este caido).
 echo - RequestId trazable en tiendas-service.
 echo - Durante falla de catalogo: respuestas 502.
 echo - Tras restaurar catalogo: recuperacion a 200.

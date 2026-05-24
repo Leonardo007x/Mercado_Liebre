@@ -9,6 +9,7 @@
  * por circuit breaker `tiendas-catalogo-productos`.
  */
 
+const { logServiceBoot, logServiceReady } = require('@mercadoliebre/resilience');
 const { PORT, SERVICE_NAME, CATALOGO_SERVICE_URL } = require('./config');
 const { logger } = require('./logger');
 const { createPool, waitForDb } = require('./db');
@@ -16,15 +17,17 @@ const { createApp } = require('./app');
 
 async function bootstrap() {
   try {
+    logServiceBoot(logger, SERVICE_NAME);
     const pool = createPool();
     await waitForDb(pool);
 
     const app = createApp({ pool });
     app.listen(PORT, () => {
-      logger.info(
-        { port: PORT, service: SERVICE_NAME, catalogo_url: CATALOGO_SERVICE_URL },
-        '[tiendas] API en escucha; integración con catálogo protegida por circuit breaker.'
-      );
+      logServiceReady(logger, {
+        serviceName: SERVICE_NAME,
+        port: PORT,
+        details: { catalogo_url: CATALOGO_SERVICE_URL },
+      });
     });
   } catch (e) {
     logger.error({ err: e?.message }, '[tiendas] Arranque abortado.');

@@ -3,7 +3,8 @@
 const express = require('express');
 const cors = require('cors');
 const requestId = require('./middleware/requestId');
-const { httpLogger } = require('./logger');
+const { httpLogger, httpErrorLogger, logger } = require('./logger');
+const { registerApiErrorHandlers } = require('@mercadoliebre/resilience');
 const createInternalRouter = require('./routes/internal.routes');
 const createTiendasRouter = require('./routes/tiendas.routes');
 const createTemasRouter = require('./routes/temas.routes');
@@ -15,6 +16,7 @@ function createApp({ pool }) {
   app.use(express.json({ limit: '2mb' }));
   app.use(requestId);
   app.use(httpLogger);
+  app.use(httpErrorLogger);
 
   // Endpoints servicio-a-servicio (NO expuestos al cliente final).
   app.use('/internal', createInternalRouter({ pool }));
@@ -23,6 +25,8 @@ function createApp({ pool }) {
   app.use('/api/tiendas', createTiendasRouter({ pool }));
   app.use('/api/temas', createTemasRouter({ pool }));
   app.use('/api', createHealthRouter({ pool }));
+
+  registerApiErrorHandlers(app, logger);
 
   return app;
 }
