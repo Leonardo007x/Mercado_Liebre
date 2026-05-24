@@ -8,6 +8,11 @@
 # - 6 bases MySQL separadas (database-per-service).
 # - 1 red interna compartida + volúmenes persistentes por dominio.
 
+# Variables de logging compartidas (anchor YAML; no es un servicio).
+x-microservice-logging: &microservice-logging
+  LOG_FORMAT: ${LOG_FORMAT:-pretty}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
 services:
   # ==========================================================
   # 1) BASES DE DATOS POR DOMINIO (database-per-service)
@@ -177,6 +182,7 @@ services:
     env_file:
       - .env
     environment:
+      <<: *microservice-logging
       # Puerto interno del servicio (no expuesto al host).
       PORT: "${USUARIOS_SERVICE_PORT}"
       # Host de su BD dedicada dentro de la red Docker.
@@ -186,8 +192,7 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      OPS_LAB_TOKEN: ${OPS_PANEL_TOKEN:-ml_ops_panel_dev_token}
-      INSTANCE_ID: usuarios-1
+      INSTANCE_ID: usuarios_1
     networks:
       - mercadoliebre-net
     depends_on:
@@ -204,6 +209,7 @@ services:
     env_file:
       - .env
     environment:
+      <<: *microservice-logging
       PORT: "${USUARIOS_SERVICE_PORT}"
       INSTANCE_ID: usuarios-2
       DB_HOST: db-usuarios
@@ -211,7 +217,6 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      OPS_LAB_TOKEN: ${OPS_PANEL_TOKEN:-ml_ops_panel_dev_token}
     networks:
       - mercadoliebre-net
     depends_on:
@@ -228,6 +233,7 @@ services:
     env_file:
       - .env
     environment:
+      <<: *microservice-logging
       PORT: "${TIENDAS_SERVICE_PORT}"
       DB_HOST: db-tiendas
       MYSQL_DATABASE: ${MYSQL_DATABASE_TIENDAS}
@@ -238,7 +244,6 @@ services:
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-ml_internal_shared_secret_dev_only}
       # URL interna hacia catálogo para componer vista pública.
       CATALOGO_SERVICE_URL: http://catalogo-service:${CATALOGO_SERVICE_PORT}
-      OPS_LAB_TOKEN: ${OPS_PANEL_TOKEN:-ml_ops_panel_dev_token}
     networks:
       - mercadoliebre-net
     depends_on:
@@ -257,6 +262,7 @@ services:
     env_file:
       - .env
     environment:
+      <<: *microservice-logging
       PORT: "${CATALOGO_SERVICE_PORT}"
       DB_HOST: db-catalogo
       MYSQL_DATABASE: ${MYSQL_DATABASE_CATALOGO}
@@ -266,7 +272,6 @@ services:
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-ml_internal_shared_secret_dev_only}
       # URL interna hacia tiendas para validar ownership de tienda.
       TIENDAS_SERVICE_URL: http://tiendas-service:${TIENDAS_SERVICE_PORT}
-      OPS_LAB_TOKEN: ${OPS_PANEL_TOKEN:-ml_ops_panel_dev_token}
     networks:
       - mercadoliebre-net
     depends_on:
@@ -283,6 +288,7 @@ services:
     env_file:
       - .env
     environment:
+      <<: *microservice-logging
       PORT: "${MEDIA_SERVICE_PORT}"
       DB_HOST: db-media
       MYSQL_DATABASE: ${MYSQL_DATABASE_MEDIA}
@@ -292,7 +298,6 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
-      OPS_LAB_TOKEN: ${OPS_PANEL_TOKEN:-ml_ops_panel_dev_token}
     networks:
       - mercadoliebre-net
     depends_on:
@@ -309,6 +314,7 @@ services:
     env_file:
       - .env
     environment:
+      <<: *microservice-logging
       PORT: "${CATEGORIAS_SERVICE_PORT}"
       DB_HOST: db-categorias
       MYSQL_DATABASE: ${MYSQL_DATABASE_CATEGORIAS}
@@ -317,7 +323,6 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-ml_internal_shared_secret_dev_only}
       TIENDAS_SERVICE_URL: http://tiendas-service:${TIENDAS_SERVICE_PORT}
-      OPS_LAB_TOKEN: ${OPS_PANEL_TOKEN:-ml_ops_panel_dev_token}
     networks:
       - mercadoliebre-net
     depends_on:
@@ -334,6 +339,7 @@ services:
     env_file:
       - .env
     environment:
+      <<: *microservice-logging
       PORT: "${IA_SERVICE_PORT}"
       DB_HOST: db-ia
       MYSQL_DATABASE: ${MYSQL_DATABASE_IA}
@@ -342,7 +348,6 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       GROQ_API_KEY: ${GROQ_API_KEY}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
-      OPS_LAB_TOKEN: ${OPS_PANEL_TOKEN:-ml_ops_panel_dev_token}
     networks:
       - mercadoliebre-net
     depends_on:

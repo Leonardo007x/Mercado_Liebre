@@ -43,5 +43,5 @@ module.exports = {
 
   /** Nivel de logs de Pino. */
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
-  OPS_LAB_TOKEN: process.env.OPS_LAB_TOKEN || process.env.OPS_PANEL_TOKEN || '',
+  LOG_FORMAT: process.env.LOG_FORMAT || 'pretty',
 };

@@ -1,8 +1,8 @@
 /** Health checks unificados (mismo contrato en los 6 microservicios). */
 
 const express = require('express');
-const { pingDb, getBreakerState, buildHealthPayload, createBreakerControlHandler } = require('@mercadoliebre/resilience');
-const { SERVICE_NAME, INSTANCE_ID, DB, OPS_LAB_TOKEN } = require('../config');
+const { pingDb, getBreakerState, buildHealthPayload } = require('@mercadoliebre/resilience');
+const { SERVICE_NAME, INSTANCE_ID, DB } = require('../config');
 const { breakers } = require('../breakers');
 const { logger } = require('../logger');
 
@@ -44,11 +44,6 @@ module.exports = function createHealthRouter({ pool }) {
       res.status(500).json({ error: 'health_breakers_failed', service: SERVICE_NAME });
     }
   });
-
-  router.post(
-    '/health/breakers/control',
-    createBreakerControlHandler({ breakers, logger, labToken: OPS_LAB_TOKEN })
-  );
 
   return router;
 };

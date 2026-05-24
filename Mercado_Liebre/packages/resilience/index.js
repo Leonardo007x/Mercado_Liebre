@@ -14,17 +14,22 @@
 
 const { attachBreakerLogs, classifyBreakerError } = require('./circuit-breaker');
 const { pingDb, getBreakerState, buildHealthPayload, getProcessInfo } = require('./health');
-const { setBreakerState, createBreakerControlHandler } = require('./breaker-control');
+const {
+  resolveLogFormat,
+  createServiceLogger,
+  createHttpLogger,
+  createServiceLoggerBundle,
+} = require('./logger');
 
 module.exports = {
-  // Circuit breaker / tolerancia a fallos.
   attachBreakerLogs,
   classifyBreakerError,
-  setBreakerState,
-  createBreakerControlHandler,
-  // Health / monitoreo.
   pingDb,
   getBreakerState,
   buildHealthPayload,
   getProcessInfo,
+  resolveLogFormat,
+  createServiceLogger,
+  createHttpLogger,
+  createServiceLoggerBundle,
 };

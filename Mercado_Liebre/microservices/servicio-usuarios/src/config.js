@@ -30,7 +30,5 @@ module.exports = {
   },
 
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
-
-  /** Token para POST /api/health/breakers/control (panel ops / laboratorio). */
-  OPS_LAB_TOKEN: process.env.OPS_LAB_TOKEN || process.env.OPS_PANEL_TOKEN || '',
+  LOG_FORMAT: process.env.LOG_FORMAT || 'pretty',
 };

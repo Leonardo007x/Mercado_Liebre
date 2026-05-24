@@ -1,10 +1,12 @@
-const pino = require('pino');
-const pinoHttp = require('pino-http');
-const { LOG_LEVEL, SERVICE_NAME } = require('./config');
+/** Logger del servicio (Pino legible o JSON según LOG_FORMAT). */
 
-const logger = pino({ level: LOG_LEVEL, base: { service: SERVICE_NAME } });
-const httpLogger = pinoHttp({
-  logger,
+const { createServiceLoggerBundle } = require('@mercadoliebre/resilience');
+const { LOG_LEVEL, SERVICE_NAME, LOG_FORMAT } = require('./config');
+
+const { logger, httpLogger } = createServiceLoggerBundle({
+  serviceName: SERVICE_NAME,
+  level: LOG_LEVEL,
+  format: LOG_FORMAT,
   genReqId: (req) => req.requestId,
   customProps: (req) => ({ requestId: req.requestId }),
 });

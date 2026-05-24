@@ -23,5 +23,5 @@ module.exports = {
 
   HTTP_TIMEOUT_MS: Number(process.env.HTTP_TIMEOUT_MS || 3500),
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
-  OPS_LAB_TOKEN: process.env.OPS_LAB_TOKEN || process.env.OPS_PANEL_TOKEN || '',
+  LOG_FORMAT: process.env.LOG_FORMAT || 'pretty',
 };
