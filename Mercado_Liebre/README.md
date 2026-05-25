@@ -1,175 +1,476 @@
-# Mercado Liebre
+# Mercado Liebre — Sistema distribuido (entrega final)
 
-Mercado Liebre es una plataforma para que pequeños negocios publiquen y administren su catalogo digital de forma rapida, con gestion de tienda, productos y configuracion visual.
+Plataforma para que pequeños negocios publiquen y administren su catálogo digital: tiendas, productos, categorías, imágenes (Cloudinary), asistente IA (Groq) y personalización visual.
 
-El proyecto implementa una arquitectura de servicios desplegada con Docker Compose, integrada por frontend, API backend y base de datos MySQL.
+**Stack:** Docker Compose, API Gateway (Nginx), 6 microservicios de negocio (Node.js/Express), 6 bases MySQL (database-per-service), circuit breakers (Opossum) y balanceo de carga en el servicio de usuarios.
 
-## Problema que resuelve
+---
 
-Muchos negocios pequenos:
-- no cuentan con un sitio propio,
-- dependen de herramientas genericas con poco control,
-- y tienen dificultad para mantener su catalogo actualizado.
+## 1. Descripción general del sistema
 
-Mercado Liebre centraliza la administracion de tienda y productos, y expone una vista publica consumible por clientes.
+### Propósito
 
-## Usuarios del sistema
+Centralizar la creación y administración de tiendas online para negocios pequeños, con una API distribuida, resiliente y escalable, accesible desde un frontend SPA y un único punto de entrada (gateway).
 
-- **Administrador de plataforma**: gestiona la operacion global.
-- **Dueno de negocio**: crea y administra su tienda, productos y configuracion.
-- **Cliente/visitante**: navega el catalogo publico.
+### Problemática que resuelve
 
-## Arquitectura implementada (actual)
+Muchos negocios no tienen sitio propio, dependen de herramientas genéricas o redes sociales, y les cuesta mantener catálogo, precios e imágenes actualizados. Mercado Liebre unifica registro, tienda, productos, categorías, media e IA en un mismo ecosistema.
 
-La solucion actual esta desplegada con Docker Compose y utiliza estos componentes:
+### Funcionalidades principales
 
-- **Frontend**: aplicacion React/Vite servida con Nginx.
-- **API**: servicio Node.js + Express (`api-service`).
-- **Base de datos**: MySQL 8 (`db-service`).
-- **Media externa (opcional)**: Cloudinary para subida de imagenes.
+| Área | Funcionalidad |
+|------|----------------|
+| Autenticación | Registro, login, JWT, perfil (`/api/auth/*`) |
+| Tiendas | CRUD tiendas, temas visuales, vista pública compuesta |
+| Catálogo | CRUD productos por tienda |
+| Categorías | CRUD categorías por tienda |
+| Media | Subida de imágenes a Cloudinary con auditoría en BD |
+| IA | Generación de texto vía Groq con auditoría en BD |
+| Operaciones | Panel de health, logs Docker, laboratorio de breakers, prueba de balanceo |
 
-Flujo principal:
+### Usuarios del sistema
 
-1. El usuario accede al frontend en `http://localhost:8080`.
-2. Nginx enruta `/api/*` hacia `api-service:3000`.
-3. La API consulta/persiste datos en MySQL.
-4. Para imagenes, la API usa Cloudinary cuando esta configurado.
+| Rol | Descripción |
+|-----|-------------|
+| Dueño de negocio | Crea tienda, productos, categorías, sube media, usa IA |
+| Cliente / visitante | Consulta catálogo público (`/api/tiendas/:id/vista-publica`) |
+| Operador / equipo técnico | Health vía gateway, `docker compose logs`, Postman/curl |
 
-## Servicios existentes
+### Alcance actual del proyecto
 
-### 1) Servicio de autenticacion y usuarios
+- Arquitectura de microservicios **funcional** en Docker.
+- Comunicación HTTP entre servicios (tiendas ↔ catálogo ↔ categorías).
+- Persistencia con volúmenes Docker y una BD MySQL por dominio.
+- Circuit breaker, health checks, logs estructurados y balanceo round-robin en usuarios (2 réplicas).
+- Frontend React consumiendo API vía gateway.
+- Fuera de alcance actual: réplicas de gateway, Kubernetes, colas de mensajes, CDN propio.
 
-Implementado dentro de `servicio-api/server.js`:
-- registro y login,
-- validacion JWT,
-- consulta de sesion actual (`/api/auth/me`).
+---
 
-### 2) Servicio de tiendas y configuracion
+## 2. Arquitectura final del sistema
 
-Implementado en la API:
-- creacion y actualizacion de tiendas,
-- consulta publica/privada de tienda,
-- temas visuales asociados.
+### Diagrama (puertos host e internos)
 
-### 3) Servicio de productos y categorias
+Leyenda: **host** = máquina donde corre Docker; **red interna** = `mercadoliebre-net` (DNS por nombre de servicio).
 
-Implementado en la API:
-- alta, consulta, actualizacion y eliminacion de productos,
-- consulta de categorias por tienda.
+![Arquitectura Mercado Liebre — frontend, gateway, microservicios, bases de datos y APIs externas](docs/images/arquitectura-mercado-liebre.png)
 
-### 4) Servicio de medios
+### Tabla de puertos y exposición
 
-Implementado en la API:
-- endpoint de subida `POST /api/media/upload`,
-- integracion con Cloudinary por variables de entorno.
+| Componente | Nombre Docker | Puerto interno | Puerto host (`.env`) | Expuesto al host |
+|------------|---------------|----------------|----------------------|------------------|
+| Frontend SPA | `frontend` | 80 | `8280` (`FRONTEND_HOST_PORT`) | Sí |
+| API Gateway | `gateway` | 80 | `3000` (`GATEWAY_HOST_PORT`) | Sí |
+| Usuarios réplica 1 | `usuarios-service` | 3001 | — | No (solo red interna) |
+| Usuarios réplica 2 | `usuarios-service-2` | 3001 | — | No |
+| Tiendas | `tiendas-service` | 3002 | — | No |
+| Catálogo | `catalogo-service` | 3003 | — | No |
+| Media | `media-service` | 3004 | — | No |
+| Categorías | `categorias-service` | 3005 | — | No |
+| IA | `ia-service` | 3006 | — | No |
+| MySQL × 6 | `db-usuarios` … `db-ia` | 3306 | — | No |
 
-### 5) Analitica e IA
+### Microservicios, gateway y bases de datos
 
-En el estado actual del backend no existe un microservicio independiente de analitica ni de IA en produccion dentro de Docker Compose.
+| Servicio | Carpeta | Base de datos | Entidad principal |
+|----------|---------|---------------|-------------------|
+| **usuarios** | `microservices/servicio-usuarios/` | `db-usuarios` / `usuarios_db` | `usuarios` |
+| **tiendas** | `microservices/servicio-tiendas/` | `db-tiendas` / `tiendas_db` | `tiendas`, `temas` |
+| **catálogo** | `microservices/servicio-catalogo/` | `db-catalogo` / `catalogo_db` | `productos` |
+| **categorías** | `microservices/servicio-categorias/` | `db-categorias` / `categorias_db` | `categorias` |
+| **media** | `microservices/servicio-media/` | `db-media` / `media_db` | `media_assets` |
+| **ia** | `microservices/servicio-ia/` | `db-ia` / `ia_db` | `ia_generaciones` |
+| **gateway** | `gateway/` | — | Enrutamiento y balanceo |
+| **frontend** | raíz (`Dockerfile`, `paginas/`) | — | SPA React |
 
-## Endpoints implementados
+### Comunicación entre servicios (HTTP)
 
-### Diagnostico
-- `GET /api/health`
+| Origen | Destino | Uso | Autenticación |
+|--------|---------|-----|----------------|
+| Catálogo | Tiendas | Validar que el usuario es dueño de la tienda | Header `X-Internal-Token` |
+| Categorías | Tiendas | Igual que catálogo | `X-Internal-Token` |
+| Tiendas | Catálogo | Listar productos en vista pública | Público (query `tienda_id`) |
+| Todos los MS | Su MySQL | Persistencia del dominio | Credenciales en `.env` |
+| Media | Cloudinary | Subida de imágenes | API keys en `.env` |
+| IA | Groq | Generación de texto | `GROQ_API_KEY` en `.env` |
+### Flujo de una petición (ejemplo: login)
 
-### Autenticacion
-- `POST /api/auth/register`
-- `POST /api/registro` (alias)
-- `POST /api/auth/login`
-- `POST /api/login` (alias)
-- `GET /api/auth/me`
+1. Cliente → `http://localhost:8280/api/login` (frontend Nginx).
+2. Frontend proxy → `http://gateway:80/api/login` (red interna).
+3. Gateway Nginx → `usuarios_upstream` (round-robin: `usuarios-service:3001` o `usuarios-service-2:3001`).
+4. Microservicio usuarios → consulta `db-usuarios:3306` (protegida por circuit breaker `usuarios-mysql`).
+5. Respuesta JSON con JWT al cliente.
 
-### Tiendas
-- `GET /api/tiendas`
-- `GET /api/tiendas/destacadas`
-- `GET /api/tiendas/mias`
-- `GET /api/tiendas/:id`
-- `GET /api/tiendas/:id/vista-publica`
-- `POST /api/tiendas`
-- `PATCH /api/tiendas/:id`
+### Dependencias (Docker Compose)
 
-### Temas
-- `GET /api/temas`
-- `POST /api/temas`
-- `PATCH /api/temas/:id`
+```
+db-* (healthy) → microservicio de negocio → gateway → frontend
+```
 
-### Categorias
-- `GET /api/categorias`
+Red única: `mercadoliebre-net` (driver `bridge`). Volúmenes: `usuarios_data`, `tiendas_data`, `catalogo_data`, `media_data`, `categorias_data`, `ia_data`.
 
-### Productos
-- `GET /api/productos`
-- `POST /api/productos`
-- `PATCH /api/productos/:id`
-- `DELETE /api/productos/:id`
+---
 
-### Media
-- `POST /api/media/upload`
+## 3. Justificación de arquitectura
 
-## Archivos Docker a presentar
+### Por qué microservicios
 
-- `docker-compose.yml`: orquestacion de servicios, red y volumen.
-- `Dockerfile`: build del frontend y despliegue en Nginx.
-- `nginx.conf`: proxy inverso de `/api` a `api-service`.
-- `servicio-api/Dockerfile`: contenedor del backend.
-- `.dockerignore`: exclusiones de build.
-- `init-db/init.sql`: esquema/seed inicial de MySQL.
-- `.env`: variables de entorno (sin exponer secretos en la presentacion).
+- **Dominios distintos** (auth, tiendas, catálogo, etc.) con ciclos de cambio independientes.
+- **Aislamiento de fallos:** caída de IA o Cloudinary no tumba usuarios ni tiendas.
+- **Escalabilidad selectiva:** hoy se replicó usuarios (mayor carga de login/registro).
+- **Alineación con el curso:** gateway, HTTP entre servicios, BD por servicio, contenedores y resiliencia.
 
-## Datos del sistema
+### Responsabilidades por servicio
 
-Datos principales:
-- usuarios,
-- tiendas,
-- temas,
-- productos,
-- categorias.
+Cada microservicio posee su código, Dockerfile, `init-db/init.sql` y puerto interno.
 
-Datos criticos:
-- usuarios (autenticacion),
-- tiendas,
-- productos.
+### Ventajas obtenidas
 
-## Riesgos y mitigacion
+- Despliegue y prueba por dominio (`docker compose up catalogo-service db-catalogo`).
+- Contrato de health unificado (`packages/resilience/health.js`).
+- Entrada única al backend (gateway) simplifica el frontend y Postman.
 
-### Caida de MySQL
-**Impacto:** no se pueden leer ni persistir datos de negocio.  
-**Mitigacion:** volumen persistente, respaldos periodicos y manejo de errores en API.
+### Dificultades encontradas
 
-### Caida de Cloudinary
-**Impacto:** falla la subida/visualizacion de imagenes externas.  
-**Mitigacion:** validacion de configuracion, respuestas controladas y uso de imagenes por defecto.
+- **Consistencia entre dominios** sin transacciones distribuidas (referencias por `usuario_id` / `tienda_id`).
+- **Orden de arranque** de MySQL (healthchecks + `depends_on: service_healthy`).
+- **Depuración** de errores entre contenedores (logs Pino + `docker compose logs` + `requestId`).
+- **Circuit breaker** requiere volumen de fallos antes de abrir (`volumeThreshold` en Opossum).
 
-### Caida del backend API
-**Impacto:** el frontend no puede operar sobre datos dinamicos.  
-**Mitigacion:** `restart` en Compose, endpoint de health y monitoreo.
+---
 
-## Ejecucion local con Docker
+## 4. Tolerancia a fallos
+
+### Manejo de errores
+
+- Respuestas HTTP explícitas (400, 401, 403, 409, 502, 503).
+- Clasificación de errores del breaker: `circuit_open`, `timeout`, `upstream_error` (`packages/resilience/circuit-breaker.js`).
+- Integración servicio-a-servicio: fallo en validación de dueño → 403 sin propagar excepción cruda.
+
+### Circuit breaker (Opossum)
+
+Paquete compartido: `packages/resilience/`. Cada servicio define breakers en `src/breakers.js`.
+
+| Servicio | Breaker | Dependencia protegida |
+|----------|---------|------------------------|
+| usuarios | `usuarios-mysql` | MySQL |
+| tiendas | `tiendas-catalogo-productos` | HTTP → catálogo |
+| catálogo | `catalogo-tiendas-owner` | HTTP → tiendas |
+| categorías | `categorias-tiendas-owner` | HTTP → tiendas |
+| media | `media-cloudinary-upload` | Cloudinary |
+| ia | `ia-groq` | API Groq |
+
+Estados: `closed` → `open` → `half_open` → `closed`. Logs en cada transición (`attachBreakerLogs`).
+
+### Recuperación (half-open)
+
+Opossum permite una petición de prueba en `half_open`; si tiene éxito, vuelve a `closed`. Control manual para pruebas: `POST /api/health/breakers/control/{servicio}` con header `X-Ops-Lab-Token` (mismo valor que `OPS_PANEL_TOKEN` / `OPS_LAB_TOKEN`).
+
+### Validación de disponibilidad
+
+- **Por servicio:** `GET /api/health/{servicio}` → `status`: `ok` | `degraded` | `down`, `db.latency_ms`, `breakers[]`.
+- **Gateway:** `GET /api/health` → JSON con estrategia de balanceo.
+- **Readiness:** `GET /api/health/ready` en cada microservicio.
+- **Agregado:** `GET /api/health/all` — monitoreo centralizado en el gateway (todos los servicios aunque alguno falle).
+- **Por servicio:** `GET /api/health/{servicio}` y `GET /api/health/breakers/{servicio}` vía gateway.
+
+### Logs
+
+Logger **Pino** por servicio (`src/logger.js`). Eventos de breaker con `event: 'circuit_breaker'`. Consulta: `docker compose logs usuarios-service` (o el servicio que corresponda).
+
+### Ejemplos reales en el sistema
+
+**Health con latencia y breakers:**
+
+```http
+GET http://localhost:3000/api/health/usuarios
+```
+
+Respuesta incluye: `instance_id`, `db.ok`, `db.latency_ms`, `breakers[].state`, `breakers[].stats` (successes, failures, rejects, timeouts).
+
+**Login con breaker abierto (MySQL caído):**
+
+```json
+{
+  "error": "Servicio temporalmente protegido (circuit breaker sobre base de datos)",
+  "reason": "circuit_open"
+}
+```
+
+**Catálogo sin poder validar dueño en tiendas:**
+
+El cliente HTTP devuelve `false` y la ruta responde 403; en logs: `reason: circuit_open` o `upstream_error`.
+
+---
+
+## 5. Escalabilidad y administración
+
+### Balanceo de carga implementado
+
+Se cubren **replicación**, **distribución de peticiones**, **balanceo Nginx** y **prueba de carga**:
+
+| Mecanismo | Implementación |
+|-----------|----------------|
+| Réplicas | `usuarios-service` + `usuarios-service-2` en `docker-compose.yml` |
+| Distribución | `upstream usuarios_upstream` en `gateway/nginx.conf` (round-robin) |
+| Identificación | `INSTANCE_ID` en `config.js`; respuesta en `/api/health` |
+| Prueba | PowerShell o Postman sobre `/api/health/usuarios` (40 peticiones) |
+
+```nginx
+# gateway/nginx.conf
+upstream usuarios_upstream {
+    server usuarios-service:3001 max_fails=3 fail_timeout=10s;
+    server usuarios-service-2:3001 max_fails=3 fail_timeout=10s;
+}
+```
+
+Rutas balanceadas: `/api/login`, `/api/registro`, `/api/auth/*`, `/api/health/usuarios`, control de breakers de usuarios.
+
+**Verificación en consola:**
+
+```powershell
+1..40 | ForEach-Object {
+  (Invoke-RestMethod "http://localhost:3000/api/health/usuarios").instance_id
+} | Group-Object | Select-Object Name, Count
+```
+
+Resultado esperado: reparto entre `usuarios-1` y `usuarios-2`.
+
+### Cómo podría escalar el sistema
+
+- Más réplicas de usuarios (añadir `server` al upstream y contenedor en Compose).
+- Réplicas de gateway detrás de un load balancer externo.
+- Escalar horizontalmente servicios stateless; BD por dominio con réplicas de lectura o sharding futuro.
+
+### Limitaciones actuales
+
+- Una sola réplica por servicio (excepto usuarios).
+- Gateway es punto único de entrada al backend.
+- Sin service mesh ni colas para desacoplar aún más.
+- Media e IA dependen de APIs externas (Cloudinary, Groq).
+
+### Mejoras futuras
+
+- Kubernetes / Docker Swarm para orquestación.
+- Caché (Redis) en lecturas de catálogo.
+- Tracing distribuido (OpenTelemetry).
+- Secret manager en lugar de `.env` en disco.
+
+---
+
+## 6. Seguridad básica
+
+### Variables de entorno
+
+| Variable | Uso |
+|----------|-----|
+| `JWT_SECRET` | Firma y validación de tokens entre servicios |
+| `INTERNAL_SERVICE_TOKEN` | Rutas `/internal/*` (solo servidor a servidor) |
+| `OPS_PANEL_TOKEN` | Token laboratorio (`X-Ops-Lab-Token` en control de breakers) |
+| `MYSQL_*` | Credenciales de bases de datos |
+| `CLOUDINARY_*` | Solo servicio media |
+| `GROQ_API_KEY` | Solo servicio ia |
+
+- Plantilla: **`.env.example`** (sin secretos reales).
+- **`.env`** está en `.gitignore`; no debe subirse a Git.
+- En producción: rotar tokens, no exponer `docker.sock` sin control, usar HTTPS delante del gateway.
+
+---
+
+## 7. Implementación técnica (requisitos del curso)
+
+| Requisito | Cumplimiento |
+|-----------|--------------|
+| ≥ 4 microservicios | 6 de negocio |
+| API Gateway | Nginx `gateway/` |
+| BD desacoplada | 6 MySQL, database-per-service |
+| HTTP entre servicios | tiendas ↔ catálogo ↔ categorías |
+| `docker-compose.yml` + Dockerfile por servicio | Sí |
+| Red Docker | `mercadoliebre-net` |
+| Volúmenes persistentes | 6 volúmenes nombrados |
+| ≥ 2 endpoints por MS (GET + POST) | Ver tabla siguiente |
+| Circuit breaker + logs + half-open | Opossum + Pino |
+| Health + latencia + contadores | `/api/health`, `stats` en breakers |
+| Balanceo / escalabilidad | Réplicas usuarios + Nginx + prueba con `/api/health/usuarios` |
+
+### Endpoints por microservicio
+
+| Servicio | GET | POST |
+|----------|-----|------|
+| **usuarios** | `/api/auth/me`, `/api/health` | `/api/registro`, `/api/login` |
+| **tiendas** | `/api/tiendas`, `/api/tiendas/:id/vista-publica` | `/api/tiendas` |
+| **catálogo** | `/api/productos` | `/api/productos` |
+| **categorías** | `/api/categorias` | `/api/categorias` |
+| **media** | `/api/health` | `/api/media/upload` |
+| **ia** | `/api/health` | `/api/ia/generar` |
+
+Rutas de diagnóstico adicionales: `/api/health/breakers/{servicio}`, `/api/health/ready`.
+
+Colección Postman: `postman/Mercado_Liebre_API.postman_collection.json`.
+
+### Integración entre servicios (ejemplo)
+
+**Vista pública de tienda** (`tiendas-service`):
+
+1. Lee tienda y tema en `db-tiendas`.
+2. Llama a `catalogo-service` → `GET /api/productos?tienda_id=...` (circuit breaker `tiendas-catalogo-productos`).
+3. Devuelve JSON unificado al cliente.
+
+**Crear producto** (`catalogo-service`):
+
+1. Valida JWT.
+2. Llama a `tiendas-service` → `GET /internal/tiendas/:id/owner` con `X-Internal-Token`.
+3. Si es dueño, inserta en `db-catalogo`.
+
+---
+
+## 8. Repositorio y documentación
+
+### Estructura
+
+```
+Mercado_Liebre/
+├── docker-compose.yml
+├── .env.example
+├── Dockerfile                 # Frontend
+├── nginx.conf                 # Proxy SPA → gateway
+├── gateway/
+│   ├── Dockerfile
+│   └── nginx.conf             # API Gateway + balanceo
+├── packages/resilience/       # Circuit breaker + health compartido
+├── microservices/
+│   ├── servicio-usuarios/
+│   ├── servicio-tiendas/
+│   ├── servicio-catalogo/
+│   ├── servicio-categorias/
+│   ├── servicio-media/
+│   └── servicio-ia/
+├── paginas/  componentes/  lib/
+├── postman/
+├── docs/                      # Documento técnico PDF (entrega)
+├── evidencias/                # Capturas del sistema en ejecución
+└── README.md
+```
+
+Cada microservicio:
+
+```
+servicio-*/
+├── Dockerfile
+├── init-db/init.sql
+└── src/
+    ├── index.js, app.js, config.js, breakers.js
+    ├── routes/
+    └── middleware/
+```
+
+### Evidencias mínimas (carpeta `evidencias/`)
+
+| Tema | Qué capturar |
+|------|----------------|
+| Docker | `docker ps` con contenedores Up |
+| Comunicación | Postman o navegador: vista pública / productos |
+| Base de datos | Registro en `usuarios` o filas en MySQL |
+| Circuit breaker | Health OK → fallo → `open` → recuperación |
+| Monitoreo | JSON de `/api/health`, `docker compose logs`, Postman |
+| Balanceo | Resultado 40 peticiones `usuarios-1` / `usuarios-2` |
+
+---
+
+## 9. Ejecución
 
 ### Requisitos
-- Docker
-- Docker Compose
 
-### Pasos
+- Docker Desktop o Docker Engine + Compose v2
+- Copiar `.env.example` → `.env` y completar valores
 
-1. Configurar variables en `.env` (si aplica).
-2. Levantar servicios:
+### Levantar el stack completo
 
 ```bash
+cd Mercado_Liebre
 docker compose up --build
 ```
 
-3. Abrir:
-   - Frontend: `http://localhost:8080`
-   - API health: `http://localhost:8080/api/health`
+### URLs por defecto
 
-## Pruebas de API con Postman
+| Recurso | URL |
+|---------|-----|
+| Frontend | http://localhost:8280 |
+| API Gateway | http://localhost:3000 |
+| Health gateway | http://localhost:3000/api/health |
 
-La coleccion de endpoints se encuentra en:
+### Desarrollo frontend sin Docker
 
-- `postman/Mercado_Liebre_API.postman_collection.json`
+```bash
+npm install
+npm run dev
+```
 
-Recomendacion para demo:
-1. `GET /api/health`
-2. registro/login para obtener token
-3. flujo de tienda
-4. flujo CRUD de productos
+Proxy Vite (`vite.config.ts`) → `http://127.0.0.1:3000`.
+
+---
+
+## 10. Tecnologías utilizadas
+
+| Capa | Tecnología |
+|------|------------|
+| Frontend | React, TypeScript, Vite |
+| API Gateway | Nginx |
+| Microservicios | Node.js 20, Express |
+| Base de datos | MySQL 8 |
+| Resiliencia | Opossum (circuit breaker), Pino (logs) |
+| Contenedores | Docker, Docker Compose |
+| Auth | JWT (jsonwebtoken), bcrypt |
+| Media | Cloudinary |
+| IA | Groq API |
+
+---
+
+## 11. Monitoreo y laboratorio
+
+**Health y breakers** (vía gateway):
+
+```http
+GET  http://localhost:3000/api/health
+GET  http://localhost:3000/api/health/usuarios
+GET  http://localhost:3000/api/health/breakers/tiendas
+POST http://localhost:3000/api/health/breakers/control/tiendas
+     Header: X-Ops-Lab-Token: <OPS_PANEL_TOKEN>
+     Body: {"action":"open","name":"tiendas-catalogo-productos"}
+```
+
+**Logs:**
+
+```bash
+docker compose logs -f usuarios-service
+docker compose ps
+```
+
+**Prueba de balanceo (usuarios):**
+
+```powershell
+1..40 | ForEach-Object { (Invoke-RestMethod "http://localhost:3000/api/health/usuarios").instance_id } | Group-Object
+```
+
+Guías: `docs/GUIA_RESILIENCIA_MICROSERVICIOS.md`, `microservices/GUIA_RESILIENCIA_Y_MONITOREO_EQUIPO.md`.
+
+---
+
+## 12. Archivos Docker
+
+| Archivo | Rol |
+|---------|-----|
+| `docker-compose.yml` | Servicios, réplicas, redes, volúmenes, healthchecks |
+| `gateway/Dockerfile` + `gateway/nginx.conf` | API Gateway y balanceo |
+| `Dockerfile` + `nginx.conf` (raíz) | Build y proxy del frontend |
+| `microservices/servicio-*/Dockerfile` | Cada microservicio |
+| `.dockerignore` | Exclusiones de build |
+| `.env.example` | Plantilla de variables |
+
+---
+
+## Referencias
+
+- Guía de resiliencia por servicio: `docs/GUIA_RESILIENCIA_MICROSERVICIOS.md`
+- Documento técnico formal (PDF): `docs/` (entrega académica)
+- Evidencias: `evidencias/`
