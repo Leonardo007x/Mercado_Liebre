@@ -1,0 +1,8 @@
+{
+  "include": ["."],
+  "exclude": ["__pycache__"],
+  "stubPath": "typings",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false
+}
