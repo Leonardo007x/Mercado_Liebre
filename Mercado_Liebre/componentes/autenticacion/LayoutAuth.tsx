@@ -42,8 +42,8 @@ export const LayoutAuth: React.FC<LayoutAuthProps> = ({ children, titulo, subtit
            </div>
 
            <div className="relative z-10 text-center md:text-left">
-              <div className="bg-bg w-20 h-20 rounded-2xl flex items-center justify-center mb-8 text-primary border border-primary/10 shadow-sm mx-auto md:mx-0">
-                <Logo size={40} />
+              <div className="bg-bg w-24 h-24 rounded-2xl flex items-center justify-center mb-8 text-primary border border-primary/10 shadow-lg mx-auto md:mx-0 ring-2 ring-primary/10">
+                <Logo size={52} />
               </div>
               <h1 className="text-3xl md:text-4xl font-bold text-text-main font-serif mb-4 leading-tight">
                 {titulo}

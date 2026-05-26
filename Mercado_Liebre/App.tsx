@@ -25,8 +25,8 @@ const Pagina404 = lazy(() => import('./paginas/Pagina404'));
 // Componente de carga
 const PantallaCarga = () => (
   <div className="min-h-screen bg-bg flex flex-col items-center justify-center gap-4 animate-fadeIn">
-    <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/30 animate-bounce">
-      <Logo size={40} />
+    <div className="w-20 h-20 rounded-2xl bg-surface flex items-center justify-center shadow-xl shadow-primary/20 px-2 border border-border">
+      <Logo size={52} />
     </div>
     <div className="flex flex-col items-center gap-2">
       <div className="h-1.5 w-32 bg-surface rounded-full overflow-hidden">

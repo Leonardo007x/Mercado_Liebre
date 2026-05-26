@@ -44,8 +44,8 @@ export const BarraLateral: React.FC<BarraLateralProps> = ({
     <aside className={`${baseClasses} ${mobileClasses} ${desktopClasses}`}>
       <div className="px-4 py-4 flex items-center justify-between gap-2 border-b border-white/10 dark:border-white/5 shrink-0 bg-[#FFE600] dark:bg-surface">
         <div className="flex items-center gap-2 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-white dark:bg-primary flex items-center justify-center text-[#2D3277] dark:text-white shadow-md shrink-0">
-              <Logo size={32} />
+            <div className="w-12 h-12 rounded-xl bg-white dark:bg-primary flex items-center justify-center text-[#2D3277] dark:text-white shadow-md shrink-0 px-1">
+              <Logo size={40} />
             </div>
             <span className="font-sans text-lg sm:text-xl font-black text-[#2D3277] dark:text-meli-yellow tracking-tighter truncate">Mercado <span className="font-light">Liebre</span></span>
         </div>

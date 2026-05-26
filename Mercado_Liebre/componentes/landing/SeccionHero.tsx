@@ -20,13 +20,14 @@ export const SeccionHero: React.FC<Props> = ({ titular, isMobile, scrollToSectio
         <div className="absolute top-20 left-1/4 w-64 h-64 md:w-96 md:h-96 bg-primary/10 rounded-full blur-[100px] md:blur-[128px] -z-10 animate-pulse"></div>
         <div className="absolute bottom-0 right-1/4 w-64 h-64 md:w-96 md:h-96 bg-secondary/10 rounded-full blur-[100px] md:blur-[128px] -z-10"></div>
 
-        <div className="flex justify-center mb-6 animate-bounce">
-            <div className="p-4 bg-white dark:bg-surface rounded-3xl shadow-2xl border border-black/5 dark:border-white/5">
-                <Logo size={80} />
+        <div className="flex justify-center mb-8 animate-fadeIn">
+            <div className="px-6 py-4 bg-white dark:bg-surface rounded-3xl shadow-lg border-2 border-[#FFE600]/70 ring-2 ring-[#FFE600]/40">
+                <Logo size={96} />
             </div>
         </div>
 
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-xs md:text-sm text-primary font-bold mb-8 border border-primary/20 shadow-sm">
+        <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-primary/10 text-xs md:text-sm text-primary font-bold mb-8 border border-primary/20 shadow-sm">
+          <Logo size={22} />
           <Sparkles size={14} className="text-secondary" /> Potenciado por Inteligencia Artificial
         </div>
         

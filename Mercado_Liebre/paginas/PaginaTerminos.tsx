@@ -12,7 +12,7 @@ export default function PaginaTerminos() {
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-3 font-serif text-2xl font-bold group">
             <div className="neumorphic p-2 rounded-lg text-primary group-hover:text-secondary transition-colors">
-              <Logo size={36} />
+              <Logo size={44} />
             </div>
             <span className="text-text-main group-hover:text-primary transition-colors">Mercado Liebre</span>
           </Link>

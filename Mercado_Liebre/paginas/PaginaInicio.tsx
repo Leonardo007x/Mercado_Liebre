@@ -85,8 +85,8 @@ export default function PaginaInicio() {
       <nav className="fixed top-0 w-full z-50 bg-[#FFE600] dark:bg-surface border-b border-black/10 dark:border-white/5 shadow-md transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
           <div className="flex items-center gap-3 font-sans text-2xl font-black cursor-pointer group" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
-            <div className="group-hover:scale-110 transition-transform duration-300">
-              <Logo size={46} />
+            <div className="group-hover:scale-105 transition-transform duration-300 shrink-0">
+              <Logo size={58} />
             </div>
             <span className="text-[#2D3277] dark:text-meli-yellow group-hover:opacity-80 transition-opacity tracking-tight">Mercado <span className="font-light">Liebre</span></span>
           </div>
@@ -133,7 +133,8 @@ export default function PaginaInicio() {
       <section id="caracteristicas" className="py-20 md:py-28 relative border-t border-white/5 bg-surface/30 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="text-center mb-16 max-w-3xl mx-auto">
-             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-xs font-bold text-primary mb-6">
+             <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-primary/10 text-xs font-bold text-primary mb-6 border border-primary/15">
+                <Logo size={28} />
                 <MousePointerClick size={14} />
                 <span>¿Por qué Mercado Liebre?</span>
              </div>
@@ -181,6 +182,9 @@ export default function PaginaInicio() {
       <section className="py-32 bg-secondary dark:bg-surface relative overflow-hidden border-b border-border">
          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
          <div className="max-w-4xl mx-auto px-6 text-center">
+            <div className="flex justify-center mb-10">
+              <Logo size={140} className="opacity-95" />
+            </div>
             <h2 className="text-4xl md:text-6xl font-black text-accent dark:text-primary mb-8 leading-tight font-sans tracking-tighter italic">
                Tus clientes <span className="text-red-600 decoration-8 underline decoration-wavy decoration-red-600/20">odian</span> descargar PDFs.
             </h2>
@@ -199,7 +203,7 @@ export default function PaginaInicio() {
       <footer className="border-t border-border bg-surface py-12 mt-12">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8 text-center md:text-left">
           <div className="flex items-center gap-3 font-sans text-xl font-black text-text-main justify-center md:justify-start">
-            <Logo size={40} />
+            <Logo size={48} />
             <span className="text-accent dark:text-primary">Mercado <span className="font-light">Liebre</span></span>
           </div>
           <nav className="flex flex-wrap justify-center gap-4 md:gap-6 text-sm font-bold text-text-muted">
