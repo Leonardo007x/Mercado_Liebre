@@ -104,11 +104,11 @@ export const PlantillaTienda: React.FC<PlantillaProps> = ({ tienda, tema, produc
     border: isDark ? `rgba(${rgbPrimario}, 0.2)` : 'rgba(0,0,0,0.05)', 
   };
 
-  const menuPorCategoria = productos.reduce((acc, p) => {
-    const cat = p.categoria || 'Especialidades';
+  const productosPorCategoria = productos.reduce((acc, p) => {
+    const cat = p.categoria || 'General';
     if (!acc[cat]) acc[cat] = []; acc[cat].push(p); return acc;
   }, {} as Record<string, Producto[]>);
-  const categorias = Object.keys(menuPorCategoria);
+  const categorias = Object.keys(productosPorCategoria);
 
   const scrollToCategory = (cat: string) => {
     setCategoriaActiva(cat);
@@ -243,7 +243,7 @@ export const PlantillaTienda: React.FC<PlantillaProps> = ({ tienda, tema, produc
           {tema.estilo_plantilla === 'carta' ? (
               <EstiloCarta 
                  categorias={categorias} 
-                 menuPorCategoria={menuPorCategoria} 
+                 productosPorCategoria={productosPorCategoria} 
                  onVerProducto={handleVerProducto} 
                  estilos={estilos} 
                  refs={categoryRefs} 
@@ -252,7 +252,7 @@ export const PlantillaTienda: React.FC<PlantillaProps> = ({ tienda, tema, produc
               // Default: Moderno
               <EstiloModerno 
                  categorias={categorias} 
-                 menuPorCategoria={menuPorCategoria} 
+                 productosPorCategoria={productosPorCategoria} 
                  onVerProducto={handleVerProducto} 
                  estilos={estilos} 
                  refs={categoryRefs} 

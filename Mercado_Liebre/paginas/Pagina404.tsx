@@ -20,11 +20,11 @@ export default function Pagina404() {
         </div>
 
         <h1 className="text-4xl md:text-6xl font-bold font-serif text-text-main mb-4">
-          ¡Se nos quemó el plato!
+          ¡Página no encontrada!
         </h1>
         
         <p className="text-xl text-text-muted mb-8 max-w-md leading-relaxed">
-          Lo sentimos, la página que buscas no está en el catálogo o ha sido eliminada de la cocina.
+          Lo sentimos, la página que buscas no existe o fue eliminada del catálogo.
         </p>
 
         <Link to="/">
@@ -34,7 +34,7 @@ export default function Pagina404() {
         </Link>
         
         <div className="mt-12 opacity-20 text-[10px] font-mono">
-          ERROR_CODE: DISH_NOT_FOUND
+          ERROR_CODE: PAGE_NOT_FOUND
         </div>
       </div>
     </TransicionPagina>

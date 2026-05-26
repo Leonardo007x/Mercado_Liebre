@@ -83,7 +83,7 @@ export const SeccionDifusion: React.FC<SeccionDifusionProps> = ({ tienda }) => {
         <section>
            <Tarjeta className="flex flex-col items-center justify-center text-center space-y-6 h-full">
               <div className="space-y-2">
-                 <h3 className="font-bold text-xl font-serif text-text-main">Código QR de Mesa</h3>
+                 <h3 className="font-bold text-xl font-serif text-text-main">Código QR de tu Tienda</h3>
                  <p className="text-sm text-text-muted px-4">
                     Escanea para ver el catálogo. El logo en el centro no afecta su funcionamiento.
                  </p>

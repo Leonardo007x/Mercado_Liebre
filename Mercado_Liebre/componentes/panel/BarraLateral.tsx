@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Store, Palette, UtensilsCrossed, Eye, ExternalLink, LogOut, Share2, Server } from 'lucide-react';
+import { Store, Palette, Package, Eye, ExternalLink, LogOut, Share2, Server } from 'lucide-react';
 // @ts-ignore
 import { useNavigate } from 'react-router-dom';
 import { ThemeToggle, Logo } from '../ui';
@@ -8,8 +8,8 @@ import { useAuth } from '../../contexto/ContextoAutenticacion';
 import { Tienda } from '../../tipos';
 
 interface BarraLateralProps {
-  tabActiva: 'info' | 'tema' | 'menu' | 'difusion' | 'docker';
-  setTabActiva: (tab: 'info' | 'tema' | 'menu' | 'difusion' | 'docker') => void;
+  tabActiva: 'info' | 'tema' | 'catalogo' | 'difusion' | 'docker';
+  setTabActiva: (tab: 'info' | 'tema' | 'catalogo' | 'difusion' | 'docker') => void;
   tienda: Tienda | null;
   setVistaPreviaAbierta: (abierta: boolean) => void;
   movilAbierto?: boolean;
@@ -75,7 +75,7 @@ export const BarraLateral: React.FC<BarraLateralProps> = ({
            </div>
          </div>
 
-         <p className="px-2 text-[10px] font-black text-text-muted uppercase tracking-widest mb-4 opacity-50">Menú Principal</p>
+         <p className="px-2 text-[10px] font-black text-text-muted uppercase tracking-widest mb-4 opacity-50">Navegación</p>
       </div>
 
       <nav className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 pb-4 space-y-2">
@@ -86,10 +86,10 @@ export const BarraLateral: React.FC<BarraLateralProps> = ({
           <Store size={18} /> Mi Tienda
         </button>
         <button 
-          onClick={() => setTabActiva('menu')}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-bold uppercase tracking-tight ${tabActiva === 'menu' ? 'bg-primary text-white dark:text-black shadow-lg' : 'text-text-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-text-main'}`}
+          onClick={() => setTabActiva('catalogo')}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-bold uppercase tracking-tight ${tabActiva === 'catalogo' ? 'bg-primary text-white dark:text-black shadow-lg' : 'text-text-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-text-main'}`}
         >
-          <UtensilsCrossed size={18} /> Catálogo
+          <Package size={18} /> Catálogo
         </button>
         <button 
           onClick={() => setTabActiva('tema')}

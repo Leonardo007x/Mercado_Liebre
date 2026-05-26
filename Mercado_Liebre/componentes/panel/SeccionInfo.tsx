@@ -7,6 +7,11 @@ import { TiendaSchema, TiendaFormValues } from '../../tipos/esquemas';
 import { Tarjeta, Input, Textarea, LogoWhatsApp } from '../ui';
 import { Store, Upload, MapPin, Phone, Mail, Globe, Wand2, MessageCircle, Facebook, Instagram, Clock, CalendarDays, AlertTriangle, SpellCheck, Loader2, Save, CheckCircle2, XCircle, AlertOctagon } from 'lucide-react';
 import { LIMITES } from '../../constantes';
+import {
+    promptOrtografiaNombreTienda,
+    promptEsloganTienda,
+    promptDescripcionTienda,
+} from '../../lib/promptsIA';
 
 interface SeccionInfoProps {
     tienda: Tienda;
@@ -150,11 +155,7 @@ export const SeccionInfo: React.FC<SeccionInfoProps> = ({
     };
 
     const iaOrtografiaNombre = () => runIA('ortografia_nombre', () => sugerirIA(
-        `Actúa como un corrector ortográfico. Tu ÚNICA tarea es revisar el nombre del tienda: "${watch('nombre')}".
-        Reglas CRÍTICAS:
-        1. Nombres como "Fogonzo", "Rappi" son MARCAS VÁLIDAS. NO LOS CORRIJAS.
-        2. Solo corrige errores ortográficos obvios.
-        3. NO agregues explicaciones.`,
+        promptOrtografiaNombreTienda(watch('nombre') || ''),
         (val) => { 
             const nombreLimpio = val.trim();
             if (nombreLimpio && nombreLimpio !== watch('nombre')) {
@@ -165,12 +166,12 @@ export const SeccionInfo: React.FC<SeccionInfoProps> = ({
     ));
 
     const sugerirEslogan = () => runIA('eslogan', () => sugerirIA(
-        `Eslogan corto, memorable y lujoso para "${watch('nombre')}". Máximo 6 palabras.`,
+        promptEsloganTienda(watch('nombre') || ''),
         (val) => { setValue('eslogan', val); guardarCampo('eslogan', val); }
     ));
 
     const sugerirDescripcion = () => runIA('descripcion', () => sugerirIA(
-        `Descripción acogedora para "${watch('nombre')}". Máximo 300 caracteres.`,
+        promptDescripcionTienda(watch('nombre') || ''),
         (val) => { setValue('descripcion', val); guardarCampo('descripcion', val); }
     ));
 
@@ -270,8 +271,8 @@ export const SeccionInfo: React.FC<SeccionInfoProps> = ({
                                 <Input 
                                     {...register('nombre')}
                                     onBlur={handleNombreBlur}
-                                    placeholder="Ej. La Sazón de la Abuela"
-                                    maxLength={LIMITES.REST_NOMBRE}
+                                    placeholder="Ej. Moda Urbana, Tech Store, Hogar & Deco"
+                                    maxLength={LIMITES.TIENDA_NOMBRE}
                                     estadoGuardado={estadosGuardado['nombre']}
                                     className={errors.nombre ? "border-red-500/50" : ""}
                                 />
@@ -285,8 +286,8 @@ export const SeccionInfo: React.FC<SeccionInfoProps> = ({
                                 </label>
                                 <Input 
                                     {...register('eslogan', { onBlur: (e) => guardarCampo('eslogan', e.target.value) })}
-                                    placeholder="Ej. Tradición en cada bocado"
-                                    maxLength={LIMITES.REST_ESLOGAN}
+                                    placeholder="Ej. Calidad que te acompaña"
+                                    maxLength={LIMITES.TIENDA_ESLOGAN}
                                     estadoGuardado={estadosGuardado['eslogan']}
                                 />
                             </div>
@@ -301,7 +302,7 @@ export const SeccionInfo: React.FC<SeccionInfoProps> = ({
                             <Textarea 
                                 {...register('descripcion', { onBlur: (e) => guardarCampo('descripcion', e.target.value) })}
                                 placeholder="Describe tu tienda..."
-                                maxLength={LIMITES.REST_DESC}
+                                maxLength={LIMITES.TIENDA_DESC}
                                 estadoGuardado={estadosGuardado['descripcion']}
                             />
                         </div>
@@ -358,7 +359,7 @@ export const SeccionInfo: React.FC<SeccionInfoProps> = ({
                                     icon={<Phone/>} 
                                     type="tel" 
                                     prefix="+57"
-                                    maxLength={LIMITES.REST_TELEFONO}
+                                    maxLength={LIMITES.TIENDA_TELEFONO}
                                     estadoGuardado={estadosGuardado['telefono']}
                                     className={errors.telefono ? "border-red-500/50" : ""}
                                 />
@@ -369,7 +370,7 @@ export const SeccionInfo: React.FC<SeccionInfoProps> = ({
                                     {...register('email', { onBlur: (e) => guardarCampo('email', e.target.value) })}
                                     type="email"
                                     icon={<Mail/>} 
-                                    maxLength={LIMITES.REST_EMAIL}
+                                    maxLength={LIMITES.TIENDA_EMAIL}
                                     estadoGuardado={estadosGuardado['email']}
                                     className={errors.email ? "border-red-500/50" : ""}
                                 />
@@ -397,7 +398,7 @@ export const SeccionInfo: React.FC<SeccionInfoProps> = ({
                             <Input 
                                 {...register('ciudad', { onBlur: (e) => guardarCampo('ciudad', e.target.value) })}
                                 placeholder="Ej. Bogotá"
-                                maxLength={LIMITES.REST_CIUDAD}
+                                maxLength={LIMITES.TIENDA_CIUDAD}
                                 estadoGuardado={estadosGuardado['ciudad']}
                             />
                         </div>
@@ -412,7 +413,7 @@ export const SeccionInfo: React.FC<SeccionInfoProps> = ({
                                 icon={<LogoWhatsApp className="w-6 h-6 text-text-muted" />} 
                                 type="tel"
                                 prefix="+57"
-                                maxLength={LIMITES.REST_TELEFONO}
+                                maxLength={LIMITES.TIENDA_TELEFONO}
                                 className={errors.whatsapp ? 'border-red-500/50' : ''}
                                 estadoGuardado={estadosGuardado['whatsapp']}
                             />

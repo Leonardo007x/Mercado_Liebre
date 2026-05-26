@@ -7,49 +7,49 @@ import { LIMITES } from '../constantes';
 export const TiendaSchema = z.object({
   nombre: z.string()
     .min(2, "El nombre debe tener al menos 2 caracteres")
-    .max(LIMITES.REST_NOMBRE, `Máximo ${LIMITES.REST_NOMBRE} caracteres`),
+    .max(LIMITES.TIENDA_NOMBRE, `Máximo ${LIMITES.TIENDA_NOMBRE} caracteres`),
     
   eslogan: z.string()
-    .max(LIMITES.REST_ESLOGAN, `Máximo ${LIMITES.REST_ESLOGAN} caracteres`)
+    .max(LIMITES.TIENDA_ESLOGAN, `Máximo ${LIMITES.TIENDA_ESLOGAN} caracteres`)
     .optional(),
     
   descripcion: z.string()
-    .max(LIMITES.REST_DESC, `Máximo ${LIMITES.REST_DESC} caracteres`)
+    .max(LIMITES.TIENDA_DESC, `Máximo ${LIMITES.TIENDA_DESC} caracteres`)
     .optional(),
     
   telefono: z.string()
     .regex(/^\d{10}$/, "Debe ser un número válido de 10 dígitos")
-    .max(LIMITES.REST_TELEFONO, "Número demasiado largo")
+    .max(LIMITES.TIENDA_TELEFONO, "Número demasiado largo")
     .optional().or(z.literal('')),
     
   email: z.string()
     .email("Correo electrónico inválido")
-    .max(LIMITES.REST_EMAIL, "Email demasiado largo")
+    .max(LIMITES.TIENDA_EMAIL, "Email demasiado largo")
     .optional().or(z.literal('')),
     
   direccion: z.string()
     .min(5, "Dirección muy corta")
-    .max(LIMITES.REST_DIRECCION, `Máximo ${LIMITES.REST_DIRECCION} caracteres`)
+    .max(LIMITES.TIENDA_DIRECCION, `Máximo ${LIMITES.TIENDA_DIRECCION} caracteres`)
     .optional(),
     
   ciudad: z.string()
     .min(2, "Ciudad inválida")
-    .max(LIMITES.REST_CIUDAD, `Máximo ${LIMITES.REST_CIUDAD} caracteres`)
+    .max(LIMITES.TIENDA_CIUDAD, `Máximo ${LIMITES.TIENDA_CIUDAD} caracteres`)
     .optional(),
     
   whatsapp: z.string()
     .regex(/^\d{10}$/, "Debe ser un número de 10 dígitos para WhatsApp")
-    .max(LIMITES.REST_TELEFONO, "Número demasiado largo")
+    .max(LIMITES.TIENDA_TELEFONO, "Número demasiado largo")
     .optional().or(z.literal('')),
     
   facebook: z.string()
     .url("URL inválida")
-    .max(LIMITES.REST_URL, "URL demasiado larga")
+    .max(LIMITES.TIENDA_URL, "URL demasiado larga")
     .optional().or(z.literal('')),
     
   instagram: z.string()
     .url("URL inválida")
-    .max(LIMITES.REST_URL, "URL demasiado larga")
+    .max(LIMITES.TIENDA_URL, "URL demasiado larga")
     .optional().or(z.literal('')),
     
   horario_apertura: z.string().optional(),
@@ -70,12 +70,12 @@ export const TiendaSchema = z.object({
 export const ProductoSchema = z.object({
   nombre: z.string()
     .min(2, "El nombre es obligatorio")
-    .max(LIMITES.PLATILLO_NOMBRE, `Máximo ${LIMITES.PLATILLO_NOMBRE} caracteres`)
+    .max(LIMITES.PRODUCTO_NOMBRE, `Máximo ${LIMITES.PRODUCTO_NOMBRE} caracteres`)
     .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, "Solo se permiten letras y espacios"),
   
   descripcion: z.string()
     .min(5, "La descripción es muy corta")
-    .max(LIMITES.PLATILLO_DESC, `Máximo ${LIMITES.PLATILLO_DESC} caracteres`)
+    .max(LIMITES.PRODUCTO_DESC, `Máximo ${LIMITES.PRODUCTO_DESC} caracteres`)
     .regex(/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s.,]+$/, "Solo se permiten letras y números"),
   
   precio: z.number()
@@ -84,7 +84,7 @@ export const ProductoSchema = z.object({
   
   categoria: z.string()
     .min(1, "Selecciona una categoría")
-    .max(LIMITES.PLATILLO_CAT, `Categoría muy larga`),
+    .max(LIMITES.PRODUCTO_CAT, `Categoría muy larga`),
     
   imagen_url: z.string().min(1, "La imagen es obligatoria"),
   

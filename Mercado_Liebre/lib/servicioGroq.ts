@@ -1,5 +1,6 @@
 
 import { apiFetch } from './clienteApi';
+import { PROMPT_SISTEMA_DEFAULT } from './promptsIA';
 
 /**
  * Servicio cliente para IA.
@@ -7,7 +8,7 @@ import { apiFetch } from './clienteApi';
  */
 export const generarContenidoGroq = async (
   mensajeUsuario: string, 
-  mensajeSistema: string = "Eres un experto en marketing gastronómico de lujo y copywriting persuasivo."
+  mensajeSistema: string = PROMPT_SISTEMA_DEFAULT
 ): Promise<string> => {
   try {
     const response = await apiFetch('/ia/generar', {

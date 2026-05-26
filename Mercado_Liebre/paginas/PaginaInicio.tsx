@@ -15,7 +15,7 @@ const TITULARES = [
   { principal: "Vende Más.", destacado: "Sin Comisiones." },
   { principal: "Adiós PDF Borroso.", destacado: "Hola Web Real." },
   { principal: "Tu Tienda.", destacado: "Ahora con IA." },
-  { principal: "Diseño que antoja.", destacado: "Tecnología que vende." },
+  { principal: "Diseño que convence.", destacado: "Tecnología que vende." },
   { principal: "Pedidos directos.", destacado: "A tu WhatsApp." },
   { principal: "La Web de tu Marca.", destacado: "Sin programar." },
   { principal: "Catálogo Inteligente.", destacado: "Ventas Reales." },
@@ -26,21 +26,21 @@ const TITULARES = [
   { principal: "Códigos QR.", destacado: "Que sí funcionan." },
   { principal: "El fin del papel.", destacado: "El inicio de tus ventas." },
   { principal: "Experiencia Premium.", destacado: "Precio accesible." },
-  { principal: "Tu Cocina es Arte.", destacado: "Tu Web también." },
+  { principal: "Tu Marca es Arte.", destacado: "Tu Web también." },
   { principal: "Más que un catálogo.", destacado: "Una experiencia." },
   { principal: "Optimizado para Móvil.", destacado: "Diseñado para Vender." },
   { principal: "Haz que vuelvan.", destacado: "Con una web inolvidable." },
   { principal: "Tu identidad.", destacado: "Elevada al máximo." },
   { principal: "Sin intermediarios.", destacado: "Tú tienes el control." },
-  { principal: "Gastronomía Digital.", destacado: "Al siguiente nivel." },
-  { principal: "Del plato a la web.", destacado: "En segundos." },
+  { principal: "Comercio Digital.", destacado: "Al siguiente nivel." },
+  { principal: "Del producto a la web.", destacado: "En segundos." },
   { principal: "Catálogos interactivos.", destacado: "Clientes felices." },
   { principal: "Moderniza tu negocio.", destacado: "Hoy mismo." },
-  { principal: "Simplemente.", destacado: "Irresistible." },
+  { principal: "Simplemente.", destacado: "Profesional." },
   { principal: "Tu vitrina digital.", destacado: "Abierta 24/7." },
   { principal: "Seduce visualmente.", destacado: "Convence al instante." },
-  { principal: "Innovación.", destacado: "Al servicio de tu mesa." },
-  { principal: "Mercado Liebre.", destacado: "El socio de tu cocina." }
+  { principal: "Innovación.", destacado: "Al servicio de tu negocio." },
+  { principal: "Mercado Liebre.", destacado: "El socio de tu tienda." }
 ];
 
 const FeatureCard = ({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) => (
@@ -78,7 +78,7 @@ export default function PaginaInicio() {
     <div className="min-h-screen bg-bg font-sans text-text-main selection:bg-primary/30 transition-colors duration-300 overflow-x-hidden">
       <SEO 
         titulo="Mercado Liebre - Constructor de Catálogos Digitales con IA"
-        descripcion="Crea un sitio web profesional para tu tienda en minutos. Diseño neumórfico, integración con WhatsApp y descripciones generadas por IA."
+        descripcion="Crea un catálogo digital profesional para tu tienda en minutos. Vende ropa, tecnología, hogar, alimentos o cualquier producto. Diseño moderno, WhatsApp e IA integrada."
       />
 
       {/* NAVBAR SÓLIDO (Mercado Libre Style) */}
@@ -151,13 +151,13 @@ export default function PaginaInicio() {
             />
             <FeatureCard 
               icon={<Sparkles size={28} />} 
-              title="Chef Digital con IA" 
-              desc="¿Bloqueo creativo? Nuestra IA redacta descripciones irresistibles y persuasivas para tus platos en segundos. Vende con palabras." 
+              title="Asistente de Ventas con IA" 
+              desc="¿Bloqueo creativo? Nuestra IA redacta descripciones persuasivas para tus productos en segundos. Vende con palabras." 
             />
             <FeatureCard 
               icon={<MessageCircle size={28} />} 
               title="Pedidos vía WhatsApp" 
-              desc="Sin comisiones ocultas. Tus clientes arman el carrito y te envían el pedido directo a tu WhatsApp listo para preparar. Simple y directo." 
+              desc="Sin comisiones ocultas. Tus clientes arman el carrito y te envían el pedido directo a tu WhatsApp listo para gestionar. Simple y directo." 
             />
             <FeatureCard 
               icon={<QrCode size={28} />} 
@@ -167,7 +167,7 @@ export default function PaginaInicio() {
             <FeatureCard 
               icon={<RefreshCw size={28} />} 
               title="Control en Tiempo Real" 
-              desc="¿Se acabó el especial? Oculta platos, cambia precios o actualiza horarios desde tu celular al instante. Tu catálogo siempre al día." 
+              desc="¿Se agotó un producto? Oculta artículos, cambia precios o actualiza horarios desde tu celular al instante. Tu catálogo siempre al día." 
             />
             <FeatureCard 
               icon={<Zap size={28} />} 

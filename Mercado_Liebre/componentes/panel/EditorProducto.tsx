@@ -7,6 +7,11 @@ import { ProductoSchema, ProductoFormValues } from '../../tipos/esquemas';
 import { Boton, Input, Textarea, Tarjeta } from '../ui';
 import { Wand2, DollarSign, Upload, EyeOff, Save, Power, AlertCircle, SpellCheck, Loader2 } from 'lucide-react';
 import { LIMITES } from '../../constantes';
+import {
+    promptOrtografiaProducto,
+    promptDescripcionProducto,
+    promptCaracteristicasProducto,
+} from '../../lib/promptsIA';
 
 interface EditorProductoProps {
     producto: Partial<Producto>;
@@ -144,7 +149,7 @@ export const EditorProducto: React.FC<EditorProductoProps> = ({
     };
 
     const iaOrtografia = () => runIA('ortografia', () => sugerirIA(
-        `Corrige ortografía del producto: "${watch('nombre')}". Devuelve SOLO texto, sin números ni símbolos raros.`,
+        promptOrtografiaProducto(watch('nombre') || ''),
         (val) => {
             const clean = val.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
             setValue('nombre', clean);
@@ -152,7 +157,7 @@ export const EditorProducto: React.FC<EditorProductoProps> = ({
     ));
 
     const iaDesc = () => runIA('descripcion', () => sugerirIA(
-        `Descripción corta para "${watch('nombre')}" con caracteristicas: "${caracteristicasTemp}". Max ${LIMITES.PLATILLO_DESC} chars. Solo letras y números.`,
+        promptDescripcionProducto(watch('nombre') || '', caracteristicasTemp, LIMITES.PRODUCTO_DESC),
         (val) => {
             const clean = val.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s.,]/g, '');
             setValue('descripcion', clean);
@@ -160,7 +165,7 @@ export const EditorProducto: React.FC<EditorProductoProps> = ({
     ));
 
     const iaIng = () => runIA('caracteristicas', () => sugerirIA(
-        `5 caracteristicas para "${watch('nombre')}". Separados por coma. Solo letras y números.`,
+        promptCaracteristicasProducto(watch('nombre') || ''),
         (val) => {
             const clean = val.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s,]/g, '');
             handleCaracterísticasInput(clean);
@@ -189,7 +194,7 @@ export const EditorProducto: React.FC<EditorProductoProps> = ({
                                 value={watch('nombre')}
                                 onChange={handleNombreChange}
                                 placeholder="Ej: Camiseta Básica, Auriculares Inalámbricos..."
-                                maxLength={LIMITES.PLATILLO_NOMBRE}
+                                maxLength={LIMITES.PRODUCTO_NOMBRE}
                                 className={errors.nombre ? "!border-red-500 border-opacity-100" : ""}
                             />
                             {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>}
@@ -217,7 +222,7 @@ export const EditorProducto: React.FC<EditorProductoProps> = ({
                                 value={caracteristicasTemp}
                                 onChange={(e) => handleCaracterísticasInput(e.target.value)}
                                 placeholder="Característica 1, Característica 2..."
-                                maxLength={LIMITES.INGREDIENTES}
+                                maxLength={LIMITES.PRODUCTO_CARACTERISTICAS}
                                 className={errors.caracteristicas ? "!border-red-500" : ""}
                             />
                             {errors.caracteristicas && <p className="text-red-500 text-xs mt-1">{errors.caracteristicas.message}</p>}
@@ -234,8 +239,8 @@ export const EditorProducto: React.FC<EditorProductoProps> = ({
                             <Textarea 
                                 value={watch('descripcion')}
                                 onChange={handleDescripcionChange}
-                                maxLength={LIMITES.PLATILLO_DESC} 
-                                placeholder="Descripción irresistible..."
+                                maxLength={LIMITES.PRODUCTO_DESC} 
+                                placeholder="Describe tu producto para el catálogo..."
                                 className={errors.descripcion ? "!border-red-500" : ""}
                             />
                             {errors.descripcion && <p className="text-red-500 text-xs mt-1">{errors.descripcion.message}</p>}

@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const requireAuth = require('../middleware/auth');
 const { GROQ_API_KEY, GROQ_MODEL } = require('../config');
 const { generate } = require('../clients/groq.client');
+const { PROMPT_SISTEMA_DEFAULT } = require('../prompts');
 
 module.exports = function createIaRouter({ pool }) {
   const router = express.Router();
@@ -18,7 +19,7 @@ module.exports = function createIaRouter({ pool }) {
   router.post('/generar', requireAuth, async (req, res) => {
     const {
       mensajeUsuario,
-      mensajeSistema = 'Eres un experto en marketing gastronómico de lujo y copywriting persuasivo.',
+      mensajeSistema = PROMPT_SISTEMA_DEFAULT,
     } = req.body || {};
 
     if (!mensajeUsuario || typeof mensajeUsuario !== 'string') {

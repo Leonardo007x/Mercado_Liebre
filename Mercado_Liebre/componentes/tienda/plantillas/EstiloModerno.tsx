@@ -7,13 +7,13 @@ import { ImagenInteligente } from '../../ui';
 
 interface Props {
   categorias: string[];
-  menuPorCategoria: Record<string, Producto[]>;
+  productosPorCategoria: Record<string, Producto[]>;
   onVerProducto: (p: Producto) => void;
   estilos: EstilosComunes;
   refs: any;
 }
 
-export const EstiloModerno: React.FC<Props> = ({ categorias, menuPorCategoria, onVerProducto, estilos, refs }) => {
+export const EstiloModerno: React.FC<Props> = ({ categorias, productosPorCategoria, onVerProducto, estilos, refs }) => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-fadeIn">
        {categorias.map(categoria => (
@@ -23,12 +23,12 @@ export const EstiloModerno: React.FC<Props> = ({ categorias, menuPorCategoria, o
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-1.5 rounded-full" style={{background: estilos.primary}}></div>
                   <h2 className="text-2xl md:text-3xl font-bold font-title tracking-tight" style={{ color: estilos.title }}>{categoria}</h2>
-                  <span className="text-xs font-bold opacity-50 ml-auto px-3 py-1 rounded-full border border-current">{menuPorCategoria[categoria].length} items</span>
+                  <span className="text-xs font-bold opacity-50 ml-auto px-3 py-1 rounded-full border border-current">{productosPorCategoria[categoria].length} items</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                {menuPorCategoria[categoria].map(producto => (
+                {productosPorCategoria[categoria].map(producto => (
                   <div 
                     key={producto.id} 
                     className="group relative flex flex-col rounded-[2rem] overflow-hidden transition-all duration-500 hover:-translate-y-2 cursor-pointer"

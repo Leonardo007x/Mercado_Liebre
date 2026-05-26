@@ -6,15 +6,15 @@ import { ImagenInteligente } from '../../ui';
 
 interface Props {
   categorias: string[];
-  menuPorCategoria: Record<string, Producto[]>;
+  productosPorCategoria: Record<string, Producto[]>;
   onVerProducto: (p: Producto) => void;
   estilos: EstilosComunes;
   refs: any;
 }
 
-export const EstiloInmersivo: React.FC<Props> = ({ categorias, menuPorCategoria, onVerProducto, estilos, refs }) => {
+export const EstiloInmersivo: React.FC<Props> = ({ categorias, productosPorCategoria, onVerProducto, estilos, refs }) => {
   // Aplanar todos los productos para el grid continuo
-  const todosLosProductos = categorias.flatMap(cat => menuPorCategoria[cat].map(p => ({...p, categoriaNombre: cat})));
+  const todosLosProductos = categorias.flatMap(cat => productosPorCategoria[cat].map(p => ({...p, categoriaNombre: cat})));
 
   return (
     <div className="w-full min-h-screen animate-fadeIn pb-20">

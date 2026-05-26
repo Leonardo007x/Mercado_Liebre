@@ -6,13 +6,13 @@ import { ImagenInteligente } from '../../ui';
 
 interface Props {
   categorias: string[];
-  menuPorCategoria: Record<string, Producto[]>;
+  productosPorCategoria: Record<string, Producto[]>;
   onVerProducto: (p: Producto) => void;
   estilos: EstilosComunes;
   refs: any;
 }
 
-export const EstiloCarta: React.FC<Props> = ({ categorias, menuPorCategoria, onVerProducto, estilos, refs }) => {
+export const EstiloCarta: React.FC<Props> = ({ categorias, productosPorCategoria, onVerProducto, estilos, refs }) => {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-16 animate-fadeIn relative w-full overflow-hidden">
        {/* Textura de papel sutil de fondo */}
@@ -39,7 +39,7 @@ export const EstiloCarta: React.FC<Props> = ({ categorias, menuPorCategoria, onV
                   </div>
                   
                   <div className="space-y-10 px-2 md:px-8">
-                    {menuPorCategoria[categoria].map(producto => (
+                    {productosPorCategoria[categoria].map(producto => (
                       <div 
                         key={producto.id} 
                         className="group relative cursor-pointer p-2 sm:p-4 rounded-2xl transition-all duration-500 hover:bg-black/5 dark:hover:bg-white/5 w-full" 

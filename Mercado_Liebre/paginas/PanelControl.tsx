@@ -37,7 +37,7 @@ export default function PanelControl() {
   const { cargando, tienda, setTienda, tema, setTema, productos, setProductos, mensaje, mostrarMensaje, cargarDatos } = useDatosPanel(user);
   
   // Estados de interfaz
-  const [tabActiva, setTabActiva] = useState<'info' | 'tema' | 'menu' | 'difusion' | 'docker'>('info');
+  const [tabActiva, setTabActiva] = useState<'info' | 'tema' | 'catalogo' | 'difusion' | 'docker'>('info');
   const [guardando, setGuardando] = useState(false);
   const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
   const [menuMovilAbierto, setCatalogoMovilAbierto] = useState(false);
@@ -149,7 +149,7 @@ export default function PanelControl() {
         <header className="h-16 md:h-20 border-b border-border bg-secondary dark:bg-surface flex items-center justify-between px-4 md:px-8 shrink-0 z-10 shadow-sm transition-colors duration-500">
           <div className="flex items-center gap-3">
              <button onClick={() => setCatalogoMovilAbierto(!menuMovilAbierto)} className="md:hidden p-2 text-[#2D3277] dark:text-primary rounded-lg"><Menu size={32} /></button>
-             <div><h1 className="text-lg md:text-xl font-black text-[#2D3277] dark:text-text-main font-sans flex items-center gap-2 line-clamp-1 truncate uppercase tracking-tighter italic">{editandoProducto ? <><button type="button" onClick={() => setEditandoProducto(null)} className="hover:bg-black/5 p-1 rounded-full"><ArrowLeft size={20}/></button>{editandoProducto.id ? 'Editar' : 'Nuevo'}</> : (tabActiva === 'info' ? 'Configuración' : tabActiva === 'tema' ? 'Diseño' : tabActiva === 'menu' ? 'Catálogo' : 'Difusión')}</h1></div>
+             <div><h1 className="text-lg md:text-xl font-black text-[#2D3277] dark:text-text-main font-sans flex items-center gap-2 line-clamp-1 truncate uppercase tracking-tighter italic">{editandoProducto ? <><button type="button" onClick={() => setEditandoProducto(null)} className="hover:bg-black/5 p-1 rounded-full"><ArrowLeft size={20}/></button>{editandoProducto.id ? 'Editar' : 'Nuevo'}</> : (tabActiva === 'info' ? 'Configuración' : tabActiva === 'tema' ? 'Diseño' : tabActiva === 'catalogo' ? 'Catálogo' : 'Difusión')}</h1></div>
           </div>
           <div className="flex items-center gap-3">
              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/40 dark:bg-primary/10 text-[#2D3277] dark:text-primary text-xs font-bold border border-black/5 dark:border-primary/20"><Wand2 size={12} fill="currentColor"/> IA CO-PILOT</div>
@@ -160,10 +160,10 @@ export default function PanelControl() {
         {/* Área de Contenido */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-20 scroll-smooth">
           <div className="max-w-6xl mx-auto space-y-8">
-            {tabActiva === 'menu' && editandoProducto && tienda ? <EditorProducto producto={editandoProducto} setProducto={setEditandoProducto} guardar={guardarProducto} cancelar={() => setEditandoProducto(null)} sugerirIA={sugerirIA} handleImagenUpload={(e) => handleImagenUpload(e, 'producto')} guardando={guardando} tiendaNombre={tienda.nombre} /> : null}
+            {tabActiva === 'catalogo' && editandoProducto && tienda ? <EditorProducto producto={editandoProducto} setProducto={setEditandoProducto} guardar={guardarProducto} cancelar={() => setEditandoProducto(null)} sugerirIA={sugerirIA} handleImagenUpload={(e) => handleImagenUpload(e, 'producto')} guardando={guardando} tiendaNombre={tienda.nombre} /> : null}
             {tabActiva === 'info' && tienda && !editandoProducto && <SeccionInfo tienda={tienda} setTienda={setTienda} guardarTienda={guardarTiendaSilencioso} handleImagenUpload={handleImagenUpload} sugerirIA={sugerirIA} guardando={guardando} mostrarMensaje={mostrarMensaje} />}
              {tabActiva === 'tema' && tema && !editandoProducto && <SeccionDiseno tema={tema} aplicarTema={aplicarTema} guardando={guardando} />}
-            {tabActiva === 'menu' && !editandoProducto && <SeccionCatalogo productos={productos} setEditandoProducto={setEditandoProducto} toggleEstadoProducto={toggleEstadoProducto} eliminarProducto={iniciarEliminacion} />}
+            {tabActiva === 'catalogo' && !editandoProducto && <SeccionCatalogo productos={productos} setEditandoProducto={setEditandoProducto} toggleEstadoProducto={toggleEstadoProducto} eliminarProducto={iniciarEliminacion} />}
             {tabActiva === 'difusion' && tienda && <SeccionDifusion tienda={tienda} />}
             {tabActiva === 'docker' && <DemoMicroservicios />}
           </div>

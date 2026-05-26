@@ -3,10 +3,11 @@
  */
 import { generarContenidoGroq } from './servicioGroq';
 import { apiFetch } from './clienteApi';
+import { PROMPT_SISTEMA_DEFAULT } from './promptsIA';
 
 // --- SERVICIO DE IA (Sin límites) ---
 
-export const generarContenidoIA = async (prompt: string, sistema: string = "Eres un experto en marketing gastronómico.") => {
+export const generarContenidoIA = async (prompt: string, sistema: string = PROMPT_SISTEMA_DEFAULT) => {
   try {
     return await generarContenidoGroq(prompt, sistema);
   } catch (error) {

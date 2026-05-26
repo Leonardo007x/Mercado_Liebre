@@ -27,19 +27,19 @@ export const DIAS_SEMANA = [
 
 // Límites de caracteres estandarizados para todos los formularios
 export const LIMITES = { 
-  REST_NOMBRE: 50, 
-  REST_ESLOGAN: 100, 
-  REST_DESC: 500, 
-  REST_EMAIL: 100,
-  REST_TELEFONO: 10, // Actualizado a 10 dígitos exactos
-  REST_DIRECCION: 120,
-  REST_CIUDAD: 50,
-  REST_URL: 200, // Facebook, Instagram
-  
-  PLATILLO_NOMBRE: 60, 
-  PLATILLO_DESC: 250, 
-  PLATILLO_CAT: 50, 
-  INGREDIENTES: 300,
+  TIENDA_NOMBRE: 50,
+  TIENDA_ESLOGAN: 100,
+  TIENDA_DESC: 500,
+  TIENDA_EMAIL: 100,
+  TIENDA_TELEFONO: 10, // 10 dígitos exactos
+  TIENDA_DIRECCION: 120,
+  TIENDA_CIUDAD: 50,
+  TIENDA_URL: 200, // Facebook, Instagram
+
+  PRODUCTO_NOMBRE: 60,
+  PRODUCTO_DESC: 250,
+  PRODUCTO_CAT: 50,
+  PRODUCTO_CARACTERISTICAS: 300,
   
   ADDR_NUM: 10, 
   ADDR_TEXT: 50 
